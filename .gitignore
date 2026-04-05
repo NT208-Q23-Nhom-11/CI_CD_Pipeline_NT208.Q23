@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment variables
+.env
+.env.*
+
+# Flask
+instance/
+.webassets-cache
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+*.tar
+
+# GitHub Actions
+*.env.local
+
+# Build
+dist/
+build/
+*.egg-info/
+
+# Secrets
+secrets/
+*.pem
+*.key
+
+# Staging tag files (theo SDD)
+.current_tag
+.previous_tag
