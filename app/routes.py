@@ -1,39 +1,47 @@
 from flask import jsonify, request
 
 
-items = [{"id": 1, "name": "item1"}]
+ITEMS = [
+    {"id": 1, "name": "item-1"},
+    {"id": 2, "name": "item-2"},
+]
 
 
 def register_routes(app):
-
-    @app.route("/")
+    @app.get("/")
     def index():
-        return jsonify({"app": "CI/CD Demo", "version": "dev"})
+        return jsonify({
+            "app": "ci-cd-pipeline-demo",
+            "version": app.config.get("APP_VERSION", "dev"),
+            "environment": app.config.get("FLASK_ENV", "development")
+        }), 200
 
-    @app.route("/health")
+    @app.get("/health")
     def health():
         return jsonify({"status": "ok"}), 200
 
-    @app.route("/api/items")
+    @app.get("/api/items")
     def get_items():
-        return jsonify({"items": items})
+        return jsonify({"items": ITEMS}), 200
 
-    @app.route("/api/items/<int:item_id>")
+    @app.get("/api/items/<int:item_id>")
     def get_item(item_id):
-        for item in items:
-            if item["id"] == item_id:
-                return jsonify(item)
-        return jsonify({"error": "Not found"}), 404
+        item = next((item for item in ITEMS if item["id"] == item_id), None)
+        if item is None:
+            return jsonify({"error": "Item not found"}), 404
+        return jsonify(item), 200
 
-    @app.route("/api/items", methods=["POST"])
-    def add_item():
-        data = request.get_json()
+    @app.post("/api/items")
+    def create_item():
+        data = request.get_json(silent=True)
+
         if not data or "name" not in data:
-            return jsonify({"error": "Bad request"}), 400
+            return jsonify({"error": "Invalid request"}), 400
 
         new_item = {
-            "id": len(items) + 1,
+            "id": len(ITEMS) + 1,
             "name": data["name"]
         }
-        items.append(new_item)
+        ITEMS.append(new_item)
+
         return jsonify(new_item), 201
