@@ -1,8 +1,30 @@
 # Pipeline CI/CD cho Web Application với Staging, Kiểm thử tự động và Rollback
 
-Đây là đồ án môn **Lập Trình Ứng Dụng Web (NT208)** với mục tiêu xây dựng một pipeline **CI/CD** cho ứng dụng web đơn giản, hỗ trợ kiểm thử tự động, triển khai lên môi trường staging và rollback khi phát hiện lỗi sau deploy.
+## Giới thiệu
 
-Dự án mô phỏng một quy trình DevOps thu gọn nhưng bám sát các thành phần cốt lõi trong thực tế: **lint, unit test, integration test, build Docker image, push registry, deploy staging, smoke test và rollback**.
+Đây là đồ án môn Lập Trình Ứng Dụng Web (NT208) với mục tiêu xây dựng một pipeline CI/CD cho ứng dụng web đơn giản, hỗ trợ kiểm thử tự động, triển khai lên môi trường staging và rollback khi phát hiện lỗi sau deploy.
+
+Dự án mô phỏng một quy trình DevOps thu gọn nhưng bám sát các thành phần cốt lõi trong thực tế: lint, unit test, integration test, build Docker image, push registry, deploy staging, smoke test và rollback.
+
+## Giảng viên hướng đẫn
+
+- Ths. Nghi Hoàng Khoa
+  
+
+## Thực hiện bởi nhóm 11 gồm:
+
+- Hồ Ngọc Vương Thương - 24521749
+  
+- Phạm Trần Anh Tuấn - 24521939
+  
+- Võ Đình Hoàng Tiến - 24521783
+  
+- Hà Võ Đức Thiện - 24521658
+  
+
+## Lớp
+
+NT208.Q23.ANTT
 
 ---
 
