@@ -2,23 +2,32 @@ name: CD Pipeline
 
 on:
   push:
-    branches: [develop] # Tự chạy khi merge vào develop
+    branches: [develop] # Tự động chạy khi code được merge vào develop
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Login to GHCR
-        run: echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+    permissions:
+      contents: read
+      packages: write # Quan trọng: Cấp quyền ghi vào Packages cho GITHUB_TOKEN
 
-      - name: Build and Push
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and Push Docker image
         run: |
-          # Chuyển tên repo về chữ thường cho đúng chuẩn Docker
+          # Bước then chốt: Chuyển tên Repo về chữ thường
           IMAGE_ID=ghcr.io/${{ github.repository }}
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           
-          # Tag bằng mã SHA để rollback chính xác [cite: 63, 76]
+          echo "Building image: $IMAGE_ID:${{ github.sha }}"
+
+          # Build image với tag là mã SHA của commit để phục vụ rollback
           docker build -t $IMAGE_ID:${{ github.sha }} .
+          
+          # Push image lên kho lưu trữ
           docker push $IMAGE_ID:${{ github.sha }}
