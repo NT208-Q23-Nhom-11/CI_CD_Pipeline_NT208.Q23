@@ -31,3 +31,49 @@ jobs:
           
           # Push image lên kho lưu trữ
           docker push $IMAGE_ID:${{ github.sha }}
+  deploy-and-test:
+    needs: build-and-push # Đợi Build xong mới Deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Kết nối SSH và Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            # Di chuyển vào thư mục code trên Server
+            cd CI_CD_Pipeline_NT208.Q23
+            
+            # Cập nhật code script mới nhất
+            git pull origin develop
+            
+            # Chạy file deploy ông vừa tạo
+            bash scripts/deploy.sh ${{ github.sha }}
+
+      - name: Smoke Test #(Kiểm tra app)
+        id: smoke_test
+        run: |
+          echo "Đợi 10s cho ứng dụng khởi động..."
+          sleep 10
+          
+          # Gọi thử vào API health đã viết
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://${{ secrets.STAGING_HOST }}:5000/health)
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "Smoke test THẤT BẠI. Ứng dụng trả về mã: $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Smoke test THÀNH CÔNG!"
+
+      - name: Rollback Tự Động (Chỉ chạy nếu Smoke Test bị lỗi)
+        if: failure() # Lệnh bắt lỗi
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd CI_CD_Pipeline_NT208.Q23
+            bash scripts/rollback.sh
