@@ -1,9 +1,7 @@
 from flask import Flask
-
-from .routes import register_routes
-
+from app.routes import main_bp
 
 def create_app():
     app = Flask(__name__)
-    register_routes(app)
+    app.register_blueprint(main_bp)
     return app
