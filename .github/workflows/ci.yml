@@ -1,0 +1,29 @@
+name: CI Quality Gate
+
+on:
+  pull_request:
+    branches: [ develop, main ] # Trigger theo đúng Branch Strategy
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip' # FR-026: Tối ưu thời gian chạy
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest flake8 # Cài thêm tool phục vụ CI
+
+      - name: Run Linting (FR-021)
+        run: flake8 app/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Run Unit & Integration Tests (FR-022, FR-023)
+        run: pytest tests/ -v
