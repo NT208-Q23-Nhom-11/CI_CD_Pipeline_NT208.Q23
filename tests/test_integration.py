@@ -1,17 +1,22 @@
-def test_index_returns_200(client):
-    response = client.get("/")
-    assert response.status_code == 200
+import pytest
+from app.main import app
 
+@pytest.fixture
+def client():
+    with app.test_client() as client:
+        yield client
 
-def test_health_returns_ok(client):
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.get_json() == {"status": "ok"}
+def test_get_index(client):
+    res = client.get('/')
+    assert res.status_code == 200
+    assert "version" in res.get_json()
 
+def test_get_health(client):
+    res = client.get('/health')
+    assert res.status_code == 200
+    assert res.get_json() == {"status": "ok"}
 
-def test_get_items_returns_list(client):
-    response = client.get("/api/items")
-    assert response.status_code == 200
-    data = response.get_json()
-    assert "items" in data
-    assert isinstance(data["items"], list)
+def test_get_items(client):
+    res = client.get('/api/items')
+    assert res.status_code == 200
+    assert isinstance(res.get_json()["items"], list)
