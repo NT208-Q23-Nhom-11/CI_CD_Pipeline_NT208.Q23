@@ -65,7 +65,7 @@ jobs:
             echo "Lần $i: Đang gọi http://${{ secrets.STAGING_HOST }}:5000/health"
             # Thêm -v để xem GitHub có kết nối được IP đó không
             if curl -v -s -f http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
-              echo "✅ XÁC NHẬN: Xanh rồi ông ơi!"
+              echo "✅ XÁC NHẬN!"
               exit 0
             fi
             echo "--- Đợi 5s thử lại ---"
