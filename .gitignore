@@ -1,54 +1,38 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual environment
+# Virtual Environment
 venv/
 .venv/
-env/
+ENV/
 
-# Environment variables
-.env
-.env.*
-
-# Flask
-instance/
-.webassets-cache
-
-# Testing
+# Pytest
 .pytest_cache/
-.coverage
-htmlcov/
 
-# Logs
-*.log
+# Môi trường và thiết lập local
+.env
+.flaskenv
 
-# OS
+# OS Files
 .DS_Store
 Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# Docker
-*.tar
-
-# GitHub Actions
-*.env.local
-
-# Build
-dist/
-build/
-*.egg-info/
-
-# Secrets
-secrets/
-*.pem
-*.key
-
-# Staging tag files (theo SDD)
-.current_tag
-.previous_tag
