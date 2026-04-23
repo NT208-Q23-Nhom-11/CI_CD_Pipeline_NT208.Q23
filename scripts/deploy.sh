@@ -15,7 +15,7 @@ echo $TOKEN | docker login ghcr.io -u $USER --password-stdin
 docker pull ghcr.io/$REPO:$IMAGE_TAG
 
 # Chạy container mới
-IMAGE_TAG=$IMAGE_TAG docker compose up -d
+REPO_NAME=$REPO IMAGE_TAG=$IMAGE_TAG docker compose up -d
 
 # Smoke Test (FR-044)
 SUCCESS=0
