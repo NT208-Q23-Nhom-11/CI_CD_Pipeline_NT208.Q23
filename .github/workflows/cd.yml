@@ -62,7 +62,7 @@ jobs:
         id: smoke_test
         run: |
           echo "Đợi 10s cho ứng dụng khởi động..."
-          sleep 10
+          sleep 15
           curl -v http://${{ secrets.STAGING_HOST }}:5000/health | grep "ok"
           # Gọi thử vào API health đã viết
           HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://${{ secrets.STAGING_HOST }}:5000/health)
