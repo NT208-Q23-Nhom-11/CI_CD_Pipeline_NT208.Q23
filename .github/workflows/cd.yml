@@ -67,7 +67,7 @@ jobs:
           script: |
             # Thử gõ cửa nội bộ 10 lần, mỗi lần cách nhau 5s
             for i in {1..10}; do
-              if curl -s http://localhost:5000/health | grep -q "ok"; then
+              if curl -s http://52.230.99.113:5000/health | grep -q "ok"; then
                 echo "✅ App hoạt động!" && exit 0
               fi
               echo "Đang đợi app... ($i/10)" && sleep 5
