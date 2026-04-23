@@ -1,26 +1,19 @@
 #!/bin/bash
-set -e # Dừng ngay nếu có lỗi
-# Nhận mã SHA mới từ Pipeline
+set -e
 NEW_TAG=$1
 
-if [ -z "$NEW_TAG" ]; then
-  echo "Lỗi: Không tìm thấy mã tag (SHA) của image mới."
-  exit 1
-fi
+echo "Triển khai phiên bản: $NEW_TAG"
 
-echo "Đang triển khai phiên bản mới: $NEW_TAG"
-
-# 1. Lưu lại vết phiên bản cũ (Để Rollback)
+# Lưu vết để rollback
 if [ -f .current_tag ]; then
   cp .current_tag .previous_tag
 fi
 echo "$NEW_TAG" > .current_tag
 
-# 2. Kéo image mới từ GHCR về
-docker pull ghcr.io/nt208-q23-nhom-11/ci_cd_pipeline_nt208.q23:$NEW_TAG
-
-# 3. Khởi động lại hệ thống bằng Docker Compose
 export IMAGE_TAG=$NEW_TAG
+
+# Tắt sạch bản cũ trước khi bật bản mới để tránh xung đột port
+docker-compose down 
 docker-compose up -d
 
 echo "Triển khai thành công!"
