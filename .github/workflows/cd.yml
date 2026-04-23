@@ -41,15 +41,21 @@ jobs:
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
+          password: ${{ secrets.STAGING_PASSWORD }} # Đổi từ key sang password
           script: |
-            # Di chuyển vào thư mục code trên Server
+            # 1. Kiểm tra nếu chưa có code thì clone về (Đổi link clone thành link của repo nhóm ông nhé)
+            if [ ! -d "CI_CD_Pipeline_NT208.Q23" ]; then
+              git clone https://github.com/thv0n9k1ng/ci_cd_pipeline_nt208.q23.git CI_CD_Pipeline_NT208.Q23
+            fi
+            
+            # 2. Di chuyển vào thư mục code trên Server
             cd CI_CD_Pipeline_NT208.Q23
             
-            # Cập nhật code script mới nhất
+            # 3. Cập nhật code script mới nhất
             git pull origin develop
             
-            # Chạy file deploy ông vừa tạo
+            # 4. Cấp quyền và chạy file deploy
+            chmod +x scripts/deploy.sh
             bash scripts/deploy.sh ${{ github.sha }}
 
       - name: Smoke Test #(Kiểm tra app)
@@ -73,7 +79,7 @@ jobs:
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
+          password: ${{ secrets.STAGING_PASSWORD }} # Đổi từ key sang password
           script: |
             cd CI_CD_Pipeline_NT208.Q23
             bash scripts/rollback.sh
