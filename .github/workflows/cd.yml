@@ -61,11 +61,18 @@ jobs:
       - name: Smoke Test #(Kiểm tra app)
         id: smoke_test
         run: |
-          echo "Đang đợi ứng dụng khởi động (thử lại tối đa 10 lần)..."
-          # --retry 10: Thử lại 10 lần
-          # --retry-delay 5: Mỗi lần cách nhau 5 giây
-          # --retry-connrefused: Thử lại ngay cả khi bị từ chối kết nối lúc đầu
-          curl --retry 10 --retry-delay 5 --retry-connrefused -v http://${{ secrets.STAGING_HOST }}:5000/health | grep "ok"
+          echo "Đang kiểm tra app..."
+          # Vòng lặp check mỗi 5 giây, thử tối đa 10 lần (tổng 50 giây)
+          for i in {1..10}; do
+            echo "Lần thử $i: Đang kiểm tra http://${{ secrets.STAGING_HOST }}:5000/health"
+            if curl -s http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
+              echo "XÁC NHẬN: App đã hoạt động và phản hồi tốt!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "LỖI: App không phản hồi sau 50 giây!"
+          exit 1
           # Gọi thử vào API health đã viết
           HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://${{ secrets.STAGING_HOST }}:5000/health)
           
