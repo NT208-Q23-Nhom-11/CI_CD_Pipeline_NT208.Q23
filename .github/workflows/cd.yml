@@ -61,18 +61,10 @@ jobs:
       - name: Smoke Test #(Kiểm tra app)
         id: smoke_test
         run: |
-          echo "Đang kiểm tra app..."
-          # Vòng lặp check mỗi 5 giây, thử tối đa 10 lần (tổng 50 giây)
-          for i in {1..10}; do
-            echo "Lần thử $i: Đang kiểm tra http://${{ secrets.STAGING_HOST }}:5000/health"
-            if curl -s http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
-              echo "XÁC NHẬN: App đã hoạt động và phản hồi tốt!"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "LỖI: App không phản hồi sau 50 giây!"
-          exit 1
+          echo "Đang kiểm tra app trực tiếp bên trong máy ảo qua SSH..."
+          sleep 30
+          # chạy lệnh curl NGAY TRONG phiên SSH
+          ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} "curl -s http://localhost:5000/health" | grep "ok"
           # Gọi thử vào API health đã viết
           HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://${{ secrets.STAGING_HOST }}:5000/health)
           
