@@ -1,8 +1,11 @@
 import pytest
-from app.main import app
+from app import create_app # Thay đổi import tại đây
 
 @pytest.fixture
 def client():
+    # Khởi tạo app qua factory function
+    app = create_app()
+    app.config['TESTING'] = True
     with app.test_client() as client:
         yield client
 
