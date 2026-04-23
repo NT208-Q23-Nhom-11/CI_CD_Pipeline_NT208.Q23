@@ -16,4 +16,4 @@ USER devops-user
 EXPOSE 5000
 
 # Lệnh chạy Flask theo cấu trúc project
-CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0","run.py"]
