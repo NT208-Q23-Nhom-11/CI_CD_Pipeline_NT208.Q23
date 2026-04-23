@@ -20,17 +20,24 @@ jobs:
 
       - name: Build and Push Docker image
         run: |
-          # Bước then chốt: Chuyển tên Repo về chữ thường
           IMAGE_ID=ghcr.io/${{ github.repository }}
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           
+          # 1. Kéo bản mới nhất (latest) về làm bản nháp để Docker lấy Cache
+          docker pull $IMAGE_ID:latest || true
+          
           echo "Building image: $IMAGE_ID:${{ github.sha }}"
 
-          # Build image với tag là mã SHA của commit để phục vụ rollback
-          docker build -t $IMAGE_ID:${{ github.sha }} .
+          # 2. Build bản mới, sử dụng bản latest làm Cache
+          docker build \
+            --cache-from $IMAGE_ID:latest \
+            -t $IMAGE_ID:${{ github.sha }} \
+            -t $IMAGE_ID:latest \
+            .
           
-          # Push image lên kho lưu trữ
+          # 3. Push cả tag mã SHA và tag latest lên GHCR
           docker push $IMAGE_ID:${{ github.sha }}
+          docker push $IMAGE_ID:latest
   deploy-and-test:
     needs: build-and-push # Đợi Build xong mới Deploy
     runs-on: ubuntu-latest
