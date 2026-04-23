@@ -61,9 +61,9 @@ jobs:
       - name: Smoke Test #(Kiểm tra app)
         id: smoke_test
         run: |
-          echo "Đợi 25s cho ứng dụng khởi động..."
-          sleep 25
-          
+          echo "Đợi 30s cho ứng dụng khởi động..."
+          sleep 30
+          curl -v http://${{ secrets.STAGING_HOST }}:5000/health | grep "ok"
           # Gọi thử vào API health đã viết
           HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}\n" http://${{ secrets.STAGING_HOST }}:5000/health)
           
