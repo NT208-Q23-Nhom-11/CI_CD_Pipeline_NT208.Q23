@@ -58,21 +58,19 @@ jobs:
             chmod +x scripts/deploy.sh
             bash scripts/deploy.sh ${{ github.sha }}
 
-      - name: Smoke Test (Final)
+      - name: Smoke Test (Diagnostic)
         run: |
-          echo "GitHub đang thực hiện Smoke Test tới: http://${{ secrets.STAGING_HOST }}:5000/health"
-          
-          # Thử lại 30 lần, mỗi lần cách nhau 5 giây
-          for i in {1..30}; do
-            echo "Lần thử $i: Đang kiểm tra app..."
-            if curl -s -f http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
-              echo "✅ XÁC NHẬN: App đã phản hồi rực rỡ!"
+          # Thử gọi và hiện chi tiết lỗi
+          for i in {1..20}; do
+            echo "Lần $i: Đang gọi http://${{ secrets.STAGING_HOST }}:5000/health"
+            # Thêm -v để xem GitHub có kết nối được IP đó không
+            if curl -v -s -f http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
+              echo "✅ XÁC NHẬN: Xanh rồi ông ơi!"
               exit 0
             fi
+            echo "--- Đợi 5s thử lại ---"
             sleep 5
           done
-          
-          echo "❌ LỖI: GitHub vẫn không thấy app. Hãy kiểm tra lại IP trong Secrets!"
           exit 1
       - name: Rollback Tự Động (Chỉ chạy nếu Smoke Test bị lỗi)
         if: failure() # Lệnh bắt lỗi
