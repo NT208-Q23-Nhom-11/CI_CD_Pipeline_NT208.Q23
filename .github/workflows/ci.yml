@@ -23,7 +23,8 @@ jobs:
           pip install pytest flake8 # Cài thêm tool phục vụ CI
 
       - name: Run Linting (FR-021)
-        run: flake8 app/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Run Unit & Integration Tests (FR-022, FR-023)
-        run: pytest tests/ -v
+             
+              run: flake8 app/ tests/ --count --show-source --statistics
+      
+            - name: Run Unit & Integration Tests (FR-022, FR-023)
+              run: pytest tests/ -v
