@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e # Dừng ngay nếu có lỗi
 # Nhận mã SHA mới từ Pipeline
 NEW_TAG=$1
 

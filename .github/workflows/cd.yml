@@ -62,8 +62,8 @@ jobs:
         run: |
           echo "GitHub đang thực hiện Smoke Test tới: http://${{ secrets.STAGING_HOST }}:5000/health"
           
-          # Thử lại 10 lần, mỗi lần cách nhau 5 giây
-          for i in {1..10}; do
+          # Thử lại 20 lần, mỗi lần cách nhau 5 giây
+          for i in {1..20}; do
             echo "Lần thử $i: Đang kiểm tra app..."
             if curl -s -f http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
               echo "✅ XÁC NHẬN: App đã phản hồi rực rỡ!"

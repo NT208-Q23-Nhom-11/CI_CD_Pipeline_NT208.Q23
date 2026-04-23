@@ -17,13 +17,5 @@ services:
       - FLASK_PORT=5000
       - FLASK_HOST=0.0.0.0
     
-    # Giới hạn tài nguyên để tránh lỗi 137 (OOM)
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-        reservations:
-          memory: 128M
-
     # Khởi động lại app nếu bị sập (Xóa dấu phẩy thừa ở cuối)
     restart: always
