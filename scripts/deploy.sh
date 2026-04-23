@@ -16,7 +16,7 @@ fi
 echo "$NEW_TAG" > .current_tag
 
 # 2. Kéo image mới từ GHCR về
-docker pull ghcr.io/thv0n9k1ng/ci_cd_pipeline_nt208.q23:$NEW_TAG
+docker pull ghcr.io/nt208-q23-nhom-11/ci_cd_pipeline_nt208.q23:$NEW_TAG
 
 # 3. Khởi động lại hệ thống bằng Docker Compose
 export IMAGE_TAG=$NEW_TAG

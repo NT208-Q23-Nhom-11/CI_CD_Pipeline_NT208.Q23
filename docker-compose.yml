@@ -3,7 +3,7 @@ version: '3.8'
 services:
   web-app:
     # Tên image
-    image: ghcr.io/thv0n9k1ng/ci_cd_pipeline_nt208.q23:${IMAGE_TAG:-latest}
+    image: ghcr.io/nt208-q23-nhom-11/ci_cd_pipeline_nt208.q23:${IMAGE_TAG:-latest}
     
     ports:
       - "5000:5000" # Map port 5000 của máy chủ vào port 5000 của container

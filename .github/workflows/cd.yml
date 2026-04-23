@@ -45,7 +45,7 @@ jobs:
           script: |
             # 1. Kiểm tra nếu chưa có code thì clone về (Đổi link clone thành link của repo nhóm ông nhé)
             if [ ! -d "CI_CD_Pipeline_NT208.Q23" ]; then
-              git clone https://github.com/thv0n9k1ng/ci_cd_pipeline_nt208.q23.git CI_CD_Pipeline_NT208.Q23
+              git clone https://github.com/NT208-Q23-Nhom-11/CI_CD_Pipeline_NT208.Q23.git
             fi
             
             # 2. Di chuyển vào thư mục code trên Server
