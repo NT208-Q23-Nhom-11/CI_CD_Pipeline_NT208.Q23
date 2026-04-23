@@ -1,14 +1,3 @@
-import pytest
-from app import create_app # Thay đổi import tại đây
-
-@pytest.fixture
-def client():
-    # Khởi tạo app qua factory function
-    app = create_app()
-    app.config['TESTING'] = True
-    with app.test_client() as client:
-        yield client
-
 def test_get_index(client):
     res = client.get('/')
     assert res.status_code == 200
