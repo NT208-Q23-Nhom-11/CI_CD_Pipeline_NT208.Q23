@@ -51,12 +51,15 @@ jobs:
             # 2. Di chuyển vào thư mục code trên Server
             cd CI_CD_Pipeline_NT208.Q23
             
-            # 3. Cập nhật code script mới nhất
-            git pull origin develop
+            # CẬP NHẬT: Xóa bỏ mọi thay đổi tay trên server
+            git fetch origin
+            git reset --hard origin/develop
             
-            # 4. Cấp quyền và chạy file deploy
+            # 3. Cấp quyền và chạy file deploy
             chmod +x scripts/deploy.sh
             bash scripts/deploy.sh ${{ github.sha }}
+            
+          
 
       - name: Smoke Test (Diagnostic)
         run: |
