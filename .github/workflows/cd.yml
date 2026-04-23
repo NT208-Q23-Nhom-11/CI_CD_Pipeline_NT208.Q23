@@ -58,21 +58,22 @@ jobs:
             chmod +x scripts/deploy.sh
             bash scripts/deploy.sh ${{ github.sha }}
 
-      - name: Smoke Test (Internal SSH)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          password: ${{ secrets.STAGING_PASSWORD }}
-          script: |
-            # Thử gõ cửa nội bộ 10 lần, mỗi lần cách nhau 5s
-            for i in {1..10}; do
-              if curl -s http://52.230.99.113:5000/health | grep -q "ok"; then
-                echo "✅ App hoạt động!" && exit 0
-              fi
-              echo "Đang đợi app... ($i/10)" && sleep 5
-            done
-            exit 1
+      - name: Smoke Test (Final)
+        run: |
+          echo "GitHub đang thực hiện Smoke Test tới: http://${{ secrets.STAGING_HOST }}:5000/health"
+          
+          # Thử lại 10 lần, mỗi lần cách nhau 5 giây
+          for i in {1..10}; do
+            echo "Lần thử $i: Đang kiểm tra app..."
+            if curl -s -f http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
+              echo "✅ XÁC NHẬN: App đã phản hồi rực rỡ!"
+              exit 0
+            fi
+            sleep 5
+          done
+          
+          echo "❌ LỖI: GitHub vẫn không thấy app. Hãy kiểm tra lại IP trong Secrets!"
+          exit 1
       - name: Rollback Tự Động (Chỉ chạy nếu Smoke Test bị lỗi)
         if: failure() # Lệnh bắt lỗi
         uses: appleboy/ssh-action@v1.0.3
