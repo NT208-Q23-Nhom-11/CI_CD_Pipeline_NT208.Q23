@@ -1,0 +1,94 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [develop] # Tự động chạy khi code được merge vào develop
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Quan trọng: Cấp quyền ghi vào Packages cho GITHUB_TOKEN
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and Push Docker image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository }}
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          
+          # 1. Kéo bản mới nhất (latest) về làm bản nháp để Docker lấy Cache
+          docker pull $IMAGE_ID:latest || true
+          
+          echo "Building image: $IMAGE_ID:${{ github.sha }}"
+
+          # 2. Build bản mới, sử dụng bản latest làm Cache
+          docker build \
+            --cache-from $IMAGE_ID:latest \
+            -t $IMAGE_ID:${{ github.sha }} \
+            -t $IMAGE_ID:latest \
+            .
+          
+          # 3. Push cả tag mã SHA và tag latest lên GHCR
+          docker push $IMAGE_ID:${{ github.sha }}
+          docker push $IMAGE_ID:latest
+  deploy-and-test:
+    needs: build-and-push # Đợi Build xong mới Deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Kết nối SSH và Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          password: ${{ secrets.STAGING_PASSWORD }} # Đổi từ key sang password
+          script: |
+            # 1. Kiểm tra nếu chưa có code thì clone về (Đổi link clone thành link của repo nhóm ông nhé)
+            if [ ! -d "CI_CD_Pipeline_NT208.Q23" ]; then
+              git clone https://github.com/NT208-Q23-Nhom-11/CI_CD_Pipeline_NT208.Q23.git
+            fi
+            
+            # 2. Di chuyển vào thư mục code trên Server
+            cd CI_CD_Pipeline_NT208.Q23
+            
+            # CẬP NHẬT: Xóa bỏ mọi thay đổi tay trên server
+            git fetch origin
+            git reset --hard origin/develop
+            
+            # 3. Cấp quyền và chạy file deploy
+            chmod +x scripts/deploy.sh
+            bash scripts/deploy.sh ${{ github.sha }}
+            
+          
+
+      - name: Smoke Test (Diagnostic)
+        run: |
+          # Thử gọi và hiện chi tiết lỗi
+          for i in {1..20}; do
+            echo "Lần $i: Đang gọi http://${{ secrets.STAGING_HOST }}:5000/health"
+            # Thêm -v để xem GitHub có kết nối được IP đó không
+            if curl -v -s -f http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
+              echo "✅ XÁC NHẬN!"
+              exit 0
+            fi
+            echo "--- Đợi 5s thử lại ---"
+            sleep 5
+          done
+          exit 1
+      - name: Rollback Tự Động (Chỉ chạy nếu Smoke Test bị lỗi)
+        if: failure() # Lệnh bắt lỗi
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          password: ${{ secrets.STAGING_PASSWORD }} # Đổi từ key sang password
+          script: |
+            cd CI_CD_Pipeline_NT208.Q23
+            bash scripts/rollback.sh

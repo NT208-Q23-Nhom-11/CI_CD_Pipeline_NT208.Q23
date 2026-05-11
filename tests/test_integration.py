@@ -15,3 +15,4 @@ def test_get_items_returns_list(client):
     data = response.get_json()
     assert "items" in data
     assert isinstance(data["items"], list)
+    

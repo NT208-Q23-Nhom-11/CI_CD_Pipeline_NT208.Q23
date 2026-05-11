@@ -5,4 +5,4 @@ exclude =
     __pycache__,
     venv,
     .venv
-ignore = W503
+ignore = W503, W292, W293

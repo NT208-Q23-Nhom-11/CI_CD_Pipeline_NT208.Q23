@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  web-app:
+    # Tên image lấy từ GitHub Container Registry
+    image: ghcr.io/nt208-q23-nhom-11/ci_cd_pipeline_nt208.q23:${IMAGE_TAG:-latest}
+    
+    # Lệnh khởi động app thông qua file run.py đã cấu hình 0.0.0.0
+    command: python run.py
+
+    ports:
+      - "5000:5000"
+    
+    environment:
+      - FLASK_ENV=production
+      - APP_VERSION=${IMAGE_TAG:-dev}
+      - FLASK_PORT=5000
+      - FLASK_HOST=0.0.0.0
+    
+    # Khởi động lại app nếu bị sập (Xóa dấu phẩy thừa ở cuối)
+    restart: always
