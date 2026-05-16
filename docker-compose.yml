@@ -1,21 +1,24 @@
-version: '3.8'
-
 services:
   web-app:
-    # Tên image lấy từ GitHub Container Registry
-    image: ghcr.io/nt208-q23-nhom-11/ci_cd_pipeline_nt208.q23:${IMAGE_TAG:-latest}
-    
-    # Lệnh khởi động app thông qua file run.py đã cấu hình 0.0.0.0
+    image: ${REGISTRY_IMAGE:-ghcr.io/nt208-q23-nhom-11/ci_cd_pipeline_nt208.q23}:${IMAGE_TAG:-latest}
+    container_name: staging_web_app
     command: python run.py
-
     ports:
       - "5000:5000"
-    
     environment:
-      - FLASK_ENV=production
-      - APP_VERSION=${IMAGE_TAG:-dev}
-      - FLASK_PORT=5000
-      - FLASK_HOST=0.0.0.0
-    
-    # Khởi động lại app nếu bị sập (Xóa dấu phẩy thừa ở cuối)
-    restart: always
+      FLASK_ENV: staging
+      FLASK_HOST: 0.0.0.0
+      FLASK_PORT: "5000"
+      APP_VERSION: ${IMAGE_TAG:-dev}
+      SECRET_KEY: ${SECRET_KEY:-change-me-only-for-local}
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=5).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
