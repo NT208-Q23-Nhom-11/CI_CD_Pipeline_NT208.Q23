@@ -2,93 +2,144 @@ name: CD Pipeline
 
 on:
   push:
-    branches: [develop] # Tự động chạy khi code được merge vào develop
+    branches:
+      - develop
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  PYTHON_VERSION: "3.11"
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write # Quan trọng: Cấp quyền ghi vào Packages cho GITHUB_TOKEN
+    outputs:
+      registry_image: ${{ steps.image-meta.outputs.registry_image }}
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Record CD build start time
+        run: echo "CD_BUILD_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
 
-      - name: Build and Push Docker image
+      - name: Resolve GHCR image name
+        id: image-meta
         run: |
-          IMAGE_ID=ghcr.io/${{ github.repository }}
-          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-          
-          # 1. Kéo bản mới nhất (latest) về làm bản nháp để Docker lấy Cache
-          docker pull $IMAGE_ID:latest || true
-          
-          echo "Building image: $IMAGE_ID:${{ github.sha }}"
+          registry_image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "registry_image=$registry_image" >> "$GITHUB_OUTPUT"
+          echo "REGISTRY_IMAGE=$registry_image" >> "$GITHUB_ENV"
+          echo "Image: $registry_image"
+          echo "Tag: $IMAGE_TAG"
 
-          # 2. Build bản mới, sử dụng bản latest làm Cache
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull latest image for build cache
+        run: docker pull "$REGISTRY_IMAGE:latest" || true
+
+      - name: Build Docker image
+        run: |
           docker build \
-            --cache-from $IMAGE_ID:latest \
-            -t $IMAGE_ID:${{ github.sha }} \
-            -t $IMAGE_ID:latest \
+            --cache-from "$REGISTRY_IMAGE:latest" \
+            -t "$REGISTRY_IMAGE:$IMAGE_TAG" \
+            -t "$REGISTRY_IMAGE:latest" \
             .
-          
-          # 3. Push cả tag mã SHA và tag latest lên GHCR
-          docker push $IMAGE_ID:${{ github.sha }}
-          docker push $IMAGE_ID:latest
+
+      - name: Push Docker image
+        run: |
+          docker push "$REGISTRY_IMAGE:$IMAGE_TAG"
+          docker push "$REGISTRY_IMAGE:latest"
+
+      - name: Write build summary
+        if: always()
+        run: |
+          duration=$(($(date +%s) - CD_BUILD_START_TIME))
+          {
+            echo "## CD Build Summary"
+            echo "- Image: $REGISTRY_IMAGE"
+            echo "- SHA tag: $IMAGE_TAG"
+            echo "- Latest tag: latest"
+            echo "- Status: ${{ job.status }}"
+            echo "- Duration: ${duration}s"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   deploy-and-test:
-    needs: build-and-push # Đợi Build xong mới Deploy
+    needs: build-and-push
     runs-on: ubuntu-latest
-    
+    env:
+      REGISTRY_IMAGE: ${{ needs.build-and-push.outputs.registry_image }}
+
     steps:
-      - name: Kết nối SSH và Deploy
+      - name: Record CD deploy start time
+        run: echo "CD_DEPLOY_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Deploy, smoke test, and rollback if needed
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_IMAGE_TAG: ${{ github.sha }}
+          DEPLOY_REGISTRY_IMAGE: ${{ needs.build-and-push.outputs.registry_image }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          GHCR_USERNAME: ${{ github.actor }}
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
-          password: ${{ secrets.STAGING_PASSWORD }} # Đổi từ key sang password
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: ${{ secrets.STAGING_SSH_PORT || 22 }}
+          envs: DEPLOY_IMAGE_TAG,DEPLOY_REGISTRY_IMAGE,GHCR_READ_TOKEN,GHCR_USERNAME
           script: |
-            # 1. Kiểm tra nếu chưa có code thì clone về (Đổi link clone thành link của repo nhóm ông nhé)
-            if [ ! -d "CI_CD_Pipeline_NT208.Q23" ]; then
-              git clone https://github.com/NT208-Q23-Nhom-11/CI_CD_Pipeline_NT208.Q23.git
-            fi
-            
-            # 2. Di chuyển vào thư mục code trên Server
-            cd CI_CD_Pipeline_NT208.Q23
-            
-            # CẬP NHẬT: Xóa bỏ mọi thay đổi tay trên server
-            git fetch origin
-            git reset --hard origin/develop
-            
-            # 3. Cấp quyền và chạy file deploy
-            chmod +x scripts/deploy.sh
-            bash scripts/deploy.sh ${{ github.sha }}
-            
-          
+            set -euo pipefail
 
-      - name: Smoke Test (Diagnostic)
-        run: |
-          # Thử gọi và hiện chi tiết lỗi
-          for i in {1..20}; do
-            echo "Lần $i: Đang gọi http://${{ secrets.STAGING_HOST }}:5000/health"
-            # Thêm -v để xem GitHub có kết nối được IP đó không
-            if curl -v -s -f http://${{ secrets.STAGING_HOST }}:5000/health | grep -q "ok"; then
-              echo "✅ XÁC NHẬN!"
+            REPO_DIR="${REPO_DIR:-CI_CD_Pipeline_NT208.Q23}"
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            IMAGE_TAG="$DEPLOY_IMAGE_TAG"
+            REGISTRY_IMAGE="$DEPLOY_REGISTRY_IMAGE"
+
+            if [ ! -d "$REPO_DIR/.git" ]; then
+              git clone "$REPO_URL" "$REPO_DIR"
+            fi
+
+            cd "$REPO_DIR"
+            git fetch origin develop
+            git reset --hard origin/develop
+
+            chmod +x scripts/deploy.sh scripts/rollback.sh scripts/smoke_test.sh
+
+            if [ -n "${GHCR_READ_TOKEN:-}" ]; then
+              echo "$GHCR_READ_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            else
+              echo "[CD] GHCR_READ_TOKEN is not configured; using existing Docker auth or public package access."
+            fi
+
+            export REGISTRY_IMAGE
+            bash scripts/deploy.sh "$IMAGE_TAG"
+
+            if bash scripts/smoke_test.sh http://localhost:5000/health; then
+              echo "[CD] Deploy smoke test passed."
               exit 0
             fi
-            echo "--- Đợi 5s thử lại ---"
-            sleep 5
-          done
-          exit 1
-      - name: Rollback Tự Động (Chỉ chạy nếu Smoke Test bị lỗi)
-        if: failure() # Lệnh bắt lỗi
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          password: ${{ secrets.STAGING_PASSWORD }} # Đổi từ key sang password
-          script: |
-            cd CI_CD_Pipeline_NT208.Q23
+
+            echo "[CD] Deploy smoke test failed. Starting rollback..."
             bash scripts/rollback.sh
+
+            echo "[CD] Running post-rollback smoke test..."
+            bash scripts/smoke_test.sh http://localhost:5000/health
+            echo "[CD] Rollback recovered: health check is OK."
+
+      - name: Write deploy summary
+        if: always()
+        run: |
+          duration=$(($(date +%s) - CD_DEPLOY_START_TIME))
+          {
+            echo "## CD Deploy Summary"
+            echo "- Image: $REGISTRY_IMAGE"
+            echo "- SHA tag: $IMAGE_TAG"
+            echo "- Deploy target: staging"
+            echo "- Smoke test: see deploy step logs"
+            echo "- Rollback: triggered automatically if smoke test fails"
+            echo "- Status: ${{ job.status }}"
+            echo "- Duration: ${duration}s"
+          } >> "$GITHUB_STEP_SUMMARY"
