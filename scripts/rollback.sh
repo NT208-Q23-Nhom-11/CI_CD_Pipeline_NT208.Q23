@@ -1,24 +1,48 @@
 #!/bin/bash
-set -e
-echo "Phát hiện lỗi! Đang tiến hành Rollback..."
+set -euo pipefail
 
-# 1. Kiểm tra bản backup
-if [ ! -f .previous_tag ]; then
-  echo "Lỗi: Không tìm thấy phiên bản cũ để quay xe."
+REGISTRY_IMAGE="${REGISTRY_IMAGE:-ghcr.io/nt208-q23-nhom-11/ci_cd_pipeline_nt208.q23}"
+STATE_DIR="${STATE_DIR:-$HOME/staging-state/ci-cd-pipeline}"
+CURRENT_TAG_FILE="$STATE_DIR/.current_tag"
+PREVIOUS_TAG_FILE="$STATE_DIR/.previous_tag"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+COMPOSE_FILE="${COMPOSE_FILE:-$PROJECT_DIR/docker-compose.yml}"
+
+compose() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose -f "$COMPOSE_FILE" "$@"
+  else
+    docker-compose -f "$COMPOSE_FILE" "$@"
+  fi
+}
+
+if [ ! -s "$PREVIOUS_TAG_FILE" ]; then
+  echo "[ROLLBACK] FAIL: previous tag file not found or empty: $PREVIOUS_TAG_FILE"
   exit 1
 fi
 
-PREV_TAG=$(cat .previous_tag)
-echo "Đang khôi phục về phiên bản: $PREV_TAG"
+PREVIOUS_TAG="$(cat "$PREVIOUS_TAG_FILE")"
+CURRENT_TAG="unknown"
+if [ -s "$CURRENT_TAG_FILE" ]; then
+  CURRENT_TAG="$(cat "$CURRENT_TAG_FILE")"
+fi
 
-# 2. DỌN DẸP SẠCH SẼ MÔI TRƯỜNG LỖI (Quan trọng nhất)
-echo "--- Đang dọn dẹp bản deploy lỗi ---"
-docker-compose down --remove-orphans || true
-docker system prune -af
+echo "[ROLLBACK] Registry image: $REGISTRY_IMAGE"
+echo "[ROLLBACK] Current tag before rollback: $CURRENT_TAG"
+echo "[ROLLBACK] Rolling back to previous tag: $PREVIOUS_TAG"
 
-# 3. KHỞI CHẠY LẠI BẢN CŨ
-echo "$PREV_TAG" > .current_tag
-export IMAGE_TAG=$PREV_TAG
-docker-compose up -d
+docker pull "$REGISTRY_IMAGE:$PREVIOUS_TAG" || \
+  echo "[ROLLBACK] Pull failed, continuing with local image cache if available."
 
-echo "Khôi phục thành công!"
+export IMAGE_TAG="$PREVIOUS_TAG"
+export REGISTRY_IMAGE
+
+echo "[ROLLBACK] Stopping failed container, if any..."
+compose down --remove-orphans || true
+
+echo "[ROLLBACK] Starting previous version..."
+compose up -d
+
+echo "$PREVIOUS_TAG" > "$CURRENT_TAG_FILE"
+echo "[ROLLBACK] Done. Current tag is now: $PREVIOUS_TAG"
