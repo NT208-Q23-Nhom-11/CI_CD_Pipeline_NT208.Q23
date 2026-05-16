@@ -12,7 +12,7 @@ def register_routes(app):
     def index():
         return jsonify({
             "app": "ci-cd-pipeline-demo",
-            "version": "v2 - Demo Pass",
+            "version": app.config.get("APP_VERSION", "dev"),
             "environment": app.config.get("FLASK_ENV", "development")
         }), 200
 
