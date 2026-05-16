@@ -8,22 +8,29 @@ on:
       - develop
       - main
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
 
-    env: 
+    env:
       PYTHONPATH: .
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Record CI start time
+        run: echo "CI_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: 'pip' # Thêm dòng này để Cache thư viện
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -33,11 +40,24 @@ jobs:
       - name: Run flake8
         run: flake8 app tests
 
-      - name: Debug Python path
-        run: python -c "import sys; print(sys.path)"
-
       - name: Run unit tests
         run: pytest tests/test_unit.py -v
 
       - name: Run integration tests
         run: pytest tests/test_integration.py -v
+
+      - name: Write CI summary
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - CI_START_TIME))
+          {
+            echo "## CI Summary"
+            echo "- Python: 3.11"
+            echo "- Lint: flake8 app tests"
+            echo "- Unit test: pytest tests/test_unit.py -v"
+            echo "- Integration test: pytest tests/test_integration.py -v"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Status: ${{ job.status }}"
+            echo "- Duration: ${duration}s"
+          } >> "$GITHUB_STEP_SUMMARY"
