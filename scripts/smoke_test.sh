@@ -6,6 +6,10 @@ MAX_RETRIES="${MAX_RETRIES:-5}"
 RETRY_INTERVAL="${RETRY_INTERVAL:-5}"
 ERROR_LOG="${ERROR_LOG:-/tmp/smoke_test_error.log}"
 
+HEALTH_URL="${HEALTH_URL//$'\r'/}"
+MAX_RETRIES="${MAX_RETRIES//$'\r'/}"
+RETRY_INTERVAL="${RETRY_INTERVAL//$'\r'/}"
+
 echo "[SMOKE] Health URL: $HEALTH_URL"
 echo "[SMOKE] Max retries: $MAX_RETRIES"
 echo "[SMOKE] Retry interval: ${RETRY_INTERVAL}s"
