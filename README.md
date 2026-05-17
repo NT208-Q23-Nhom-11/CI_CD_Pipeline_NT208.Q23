@@ -124,7 +124,7 @@ Test suite hien cover cac endpoint chinh: `/`, `/health`, `GET /api/items`, `GET
 ## 6. Cach Build Docker Local
 
 ```bash
-docker build -t cicd-pipeline-nt208:local .
+docker build -t cicd-pipeline-nt208:local-dev .
 ```
 
 Chay bang Docker Compose:
