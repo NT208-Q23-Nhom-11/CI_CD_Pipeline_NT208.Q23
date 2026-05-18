@@ -40,8 +40,8 @@ Muc tieu cua project la xay dung mot quy trinh DevOps thu gon nhung co du cac bu
 ## 2. Cong Nghe Dung
 
 - Python 3.11
-- Flask 3.0.0
-- Pytest 8.0.0
+- Flask 3.1.3
+- Pytest 9.0.3
 - Flake8 7.0.0
 - Docker va Docker Compose
 - GitHub Actions
@@ -308,3 +308,4 @@ Tag rollback sai:
 - Kiem tra state dir tren staging: `$HOME/staging-state/ci-cd-pipeline`.
 - `deploy.sh` ghi `.current_tag` va `.previous_tag`.
 - `rollback.sh` doc `.previous_tag` va ghi lai `.current_tag`.
+
