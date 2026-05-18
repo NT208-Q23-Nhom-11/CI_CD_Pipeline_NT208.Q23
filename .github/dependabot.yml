@@ -4,14 +4,14 @@ updates:
     directory: /
     target-branch: develop
     schedule:
-      interval: daily
+      interval: weekly
       day: monday
       time: "03:00"
       timezone: Asia/Ho_Chi_Minh
     open-pull-requests-limit: 5
     labels:
       - dependencies
-      - security
+      - python
     commit-message:
       prefix: chore
       include: scope
@@ -19,13 +19,20 @@ updates:
       python-dependencies:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+    # ignore major version
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
     target-branch: develop
     schedule:
       interval: weekly
-      day: monday
+      day: tuesday
       time: "03:30"
       timezone: Asia/Ho_Chi_Minh
     open-pull-requests-limit: 5
