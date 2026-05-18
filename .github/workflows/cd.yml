@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Record CD build start time
         run: echo "CD_BUILD_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
@@ -78,7 +78,7 @@ jobs:
         run: echo "CD_DEPLOY_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Deploy, smoke test, and rollback if needed
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         env:
           DEPLOY_IMAGE_TAG: ${{ github.sha }}
           DEPLOY_REGISTRY_IMAGE: ${{ needs.build-and-push.outputs.registry_image }}
