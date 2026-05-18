@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Record CI start time
         run: echo "CI_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
@@ -75,7 +75,7 @@ jobs:
     steps:
       # --- 1. Checkout source ---
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Record audit start time
         run: echo "AUDIT_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
