@@ -308,3 +308,4 @@ Tag rollback sai:
 - Kiem tra state dir tren staging: `$HOME/staging-state/ci-cd-pipeline`.
 - `deploy.sh` ghi `.current_tag` va `.previous_tag`.
 - `rollback.sh` doc `.previous_tag` va ghi lai `.current_tag`.
+
