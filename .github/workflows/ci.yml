@@ -202,3 +202,24 @@ jobs:
       - name: Fail if dependency audit failed
         if: steps.pip-audit.outputs.exit_code != '0'
         run: exit 1
+  # --- 2. Secret scanning with Gitleaks ---
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install and Run Gitleaks (Free Open Source)
+        run: |
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+          tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
+          ./gitleaks detect --source . --verbose --config .gitleaks.toml
+
+      - name: Generate Report
+        if: failure()
+        run: |
+          echo "## Secrets Found in Repository" >> $GITHUB_STEP_SUMMARY
+          echo "Please review logs to rotate secrets." >> $GITHUB_STEP_SUMMARY
