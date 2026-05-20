@@ -9,7 +9,6 @@ title = "Gitleaks Enterprise Config"
   ]
   paths = [
     '''.gitleaks.toml''',
-    '''*.test.*''',
     '''tests/.*''',
     '''docs/.*''',
     '''\.git/.*''',
