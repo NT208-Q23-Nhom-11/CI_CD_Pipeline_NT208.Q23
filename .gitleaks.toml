@@ -1,0 +1,35 @@
+title = "Gitleaks Enterprise Config"
+
+# Cho phép bỏ qua một số file hoặc pattern không phải secret thật
+[allowlist]
+  description = "Global allowlist"
+  regexes = [
+    '''TEST_[A-Z0-9_]+''',
+    '''example\.com''',
+  ]
+  paths = [
+    '''.gitleaks.toml''',
+    '''*.test.*''',
+    '''tests/.*''',
+    '''docs/.*''',
+    '''\.git/.*''',
+  ]
+
+# Định nghĩa các rule quét mật khẩu/token
+[[rules]]
+  id = "aws-access-key"
+  description = "AWS Access Key"
+  regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+  tags = ["key", "aws"]
+
+[[rules]]
+  id = "jwt-token"
+  description = "JWT Token"
+  regex = '''eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}'''
+  tags = ["jwt", "token"]
+
+[[rules]]
+  id = "database-url"
+  description = "Database Connection String"
+  regex = '''(postgres|mysql|mongodb|redis)://[^:]+:[^@]+@[^/]+'''
+  tags = ["database", "connection-string"]

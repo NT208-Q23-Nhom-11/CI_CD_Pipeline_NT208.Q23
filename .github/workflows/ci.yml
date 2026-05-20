@@ -204,23 +204,23 @@ jobs:
         run: exit 1
   # --- 2. Secret scanning with Gitleaks ---
   secret-scan:
+    name: Secret Scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # Quan trọng: Kéo toàn bộ lịch sử commit để Gitleaks quét tận gốc
+          fetch-depth: 0
 
-      - name: Gitleaks Secret Scan
+      - name: Run Gitleaks Full Scan
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          config-path: .gitleaks.toml
 
-      - name: Write Secret Scan Summary
-        if: always()
+      - name: Generate Report
+        if: failure()
         run: |
-          {
-            echo "## Secret Scan Summary (Gitleaks)"
-            echo "- Status: ${{ job.status }}"
-            echo "- Mục đích: Quét rò rỉ Mật khẩu, API Key, Token trong mã nguồn."
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "## 🔴 Secrets Found in Repository!" >> $GITHUB_STEP_SUMMARY
+          echo "Please review and rotate all exposed secrets immediately." >> $GITHUB_STEP_SUMMARY"
