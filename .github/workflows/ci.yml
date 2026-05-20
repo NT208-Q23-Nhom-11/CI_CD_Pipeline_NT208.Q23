@@ -169,16 +169,80 @@ jobs:
       - name: Send Telegram notification
         if: steps.pip-audit.outputs.exit_code != '0' && env.TELEGRAM_TOKEN != '' && env.TELEGRAM_TO != ''
         run: |
-          message="$(printf '%s\n\n%s\n%s\n%s\n%s' \
-            "Security alert in ${GITHUB_REPOSITORY}" \
-            "pip-audit found known vulnerabilities." \
-            "Branch: ${GITHUB_REF_NAME}" \
-            "Commit: ${GITHUB_SHA}" \
-            "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"
+          python - <<'PY'
+          import json
+          import os
+
+          report_path = "pip-audit-report.json"
+          run_url = (
+              f"{os.environ['GITHUB_SERVER_URL']}/"
+              f"{os.environ['GITHUB_REPOSITORY']}/actions/runs/"
+              f"{os.environ['GITHUB_RUN_ID']}"
+          )
+          short_sha = os.environ["GITHUB_SHA"][:7]
+
+          try:
+              with open(report_path, encoding="utf-8") as report_file:
+                  report = json.load(report_file)
+          except Exception:
+              report = {}
+
+          findings = []
+          for dependency in report.get("dependencies", []):
+              package = dependency.get("name", "unknown")
+              version = dependency.get("version", "unknown")
+              for vulnerability in dependency.get("vulns", []):
+                  aliases = vulnerability.get("aliases") or []
+                  cve = next((alias for alias in aliases if alias.startswith("CVE-")), None)
+                  cve = cve or vulnerability.get("id", "unknown")
+                  fix_versions = vulnerability.get("fix_versions") or []
+                  fix = ", ".join(fix_versions) if fix_versions else "No fixed version listed"
+                  findings.append((package, version, cve, fix))
+
+          lines = [
+              f"🔒 Security Alert in {os.environ['GITHUB_REPOSITORY']}",
+              "",
+              "⚠️ pip-audit found known vulnerabilities!",
+              "",
+          ]
+
+          if findings:
+              for package, version, cve, fix in findings[:5]:
+                  lines.extend([
+                      f"📦 Package: {package}=={version}",
+                      f"🔴 CVE: {cve}",
+                      f"✅ Fix: {fix}",
+                      "---",
+                      "",
+                  ])
+              if len(findings) > 5:
+                  lines.extend([
+                      f"...and {len(findings) - 5} more finding(s).",
+                      "",
+                  ])
+          else:
+              lines.extend([
+                  "📦 Package: See pip-audit artifact",
+                  "🔴 CVE: See pip-audit artifact",
+                  "✅ Fix: See pip-audit artifact",
+                  "---",
+                  "",
+              ])
+
+          lines.extend([
+              "📋 Details:",
+              f"• Branch: {os.environ['GITHUB_REF_NAME']}",
+              f"• Commit: {short_sha}",
+              f"• View Run: {run_url}",
+          ])
+
+          with open("telegram-message.txt", "w", encoding="utf-8") as message_file:
+              message_file.write("\n".join(lines))
+          PY
 
           curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_TO}" \
-            --data-urlencode "text=${message}" \
+            --data-urlencode "text@telegram-message.txt" \
             --data-urlencode "disable_web_page_preview=true"
 
       - name: Skip Telegram notification
