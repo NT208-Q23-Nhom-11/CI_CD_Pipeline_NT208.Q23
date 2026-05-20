@@ -214,8 +214,9 @@ jobs:
 
       - name: Install and Run Gitleaks (Free Open Source)
         run: |
-          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh | sh
-          ./bin/gitleaks detect --source . --verbose --config .gitleaks.toml
+          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
+          tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
+          ./gitleaks detect --source . --verbose --config .gitleaks.toml
 
       - name: Generate Report
         if: failure()
