@@ -202,7 +202,7 @@ jobs:
       - name: Fail if dependency audit failed
         if: steps.pip-audit.outputs.exit_code != '0'
         run: exit 1
-  // --- 2. Secret scanning with Gitleaks ---
+  # --- 2. Secret scanning with Gitleaks ---
   secret-scan:
     runs-on: ubuntu-latest
     steps:
