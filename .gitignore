@@ -12,6 +12,7 @@ env/
 # Environment variables
 .env
 .env.*
+!.env.example
 
 # Flask
 instance/
@@ -35,6 +36,7 @@ Thumbs.db
 
 # Docker
 *.tar
+*.zip
 
 # GitHub Actions
 *.env.local
@@ -52,3 +54,6 @@ secrets/
 # Staging tag files (theo SDD)
 .current_tag
 .previous_tag
+
+# Context
+.context/

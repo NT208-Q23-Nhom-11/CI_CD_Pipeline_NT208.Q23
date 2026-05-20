@@ -7,23 +7,32 @@ on:
     branches:
       - develop
       - main
+  schedule:
+    - cron: "0 2 * * 1"
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
 
-    env: 
+    env:
       PYTHONPATH: .
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Record CI start time
+        run: echo "CI_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-          cache: 'pip' # Thêm dòng này để Cache thư viện
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -33,11 +42,163 @@ jobs:
       - name: Run flake8
         run: flake8 app tests
 
-      - name: Debug Python path
-        run: python -c "import sys; print(sys.path)"
-
       - name: Run unit tests
         run: pytest tests/test_unit.py -v
 
       - name: Run integration tests
         run: pytest tests/test_integration.py -v
+
+      - name: Write CI summary
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - CI_START_TIME))
+          {
+            echo "## CI Summary"
+            echo "- Python: 3.11"
+            echo "- Lint: flake8 app tests"
+            echo "- Unit test: pytest tests/test_unit.py -v"
+            echo "- Integration test: pytest tests/test_integration.py -v"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Status: ${{ job.status }}"
+            echo "- Duration: ${duration}s"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  security-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
+
+    steps:
+      # --- 1. Checkout source ---
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Record audit start time
+        run: echo "AUDIT_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
+
+      # --- 2. Setup Python and pip cache ---
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # --- 3. Install audit tooling ---
+      - name: Install pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+
+      # --- 4. Run dependency audit ---
+      - name: Run dependency audit
+        id: pip-audit
+        continue-on-error: true
+        run: |
+          set +e
+          pip-audit \
+            --requirement requirements.txt \
+            --format json \
+            --output pip-audit-report.json
+          audit_exit=$?
+          if [ ! -f pip-audit-report.json ]; then
+            printf '{"dependencies":[],"fixes":[]}\n' > pip-audit-report.json
+          fi
+
+          pip-audit \
+            --requirement requirements.txt \
+            --format columns \
+            | tee pip-audit-report.txt
+
+          set -e
+          echo "exit_code=$audit_exit" >> "$GITHUB_OUTPUT"
+
+          if [ "$audit_exit" -eq 0 ]; then
+            echo "result=pass" >> "$GITHUB_OUTPUT"
+            echo "::notice::pip-audit did not find known vulnerabilities."
+          else
+            echo "result=fail" >> "$GITHUB_OUTPUT"
+            echo "::error::pip-audit found known vulnerabilities. Review the audit artifact and Dependabot alerts/PRs."
+          fi
+
+          exit "$audit_exit"
+
+      # --- 5. Write summary and audit evidence ---
+      - name: Write audit evidence and summary
+        if: always()
+        run: |
+          duration=$(($(date +%s) - AUDIT_START_TIME))
+          result="${{ steps.pip-audit.outputs.result }}"
+          exit_code="${{ steps.pip-audit.outputs.exit_code }}"
+          result="${result:-not-run}"
+          exit_code="${exit_code:-unknown}"
+
+          {
+            echo "Dependency Audit Evidence"
+            echo "========================="
+            echo "Timestamp: $(date -Iseconds)"
+            echo "Workflow: $GITHUB_WORKFLOW"
+            echo "Run ID: $GITHUB_RUN_ID"
+            echo "Commit SHA: $GITHUB_SHA"
+            echo "Python: 3.11"
+            echo "Command: pip-audit --requirement requirements.txt"
+            echo "Result: $result"
+            echo "Exit code: $exit_code"
+            echo "Duration: ${duration}s"
+          } > dependency-audit-evidence.txt
+
+          {
+            echo "## Dependency Audit Summary"
+            echo "- Tool: pip-audit"
+            echo "- Python: 3.11"
+            echo "- Requirement file: requirements.txt"
+            echo "- Result: $result"
+            echo "- Exit code: $exit_code"
+            echo "- Duration: ${duration}s"
+            echo "- Remediation: Dependabot is configured in .github/dependabot.yml"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # --- 6. Auto-remediation is handled by Dependabot ---
+      # Dependabot opens dependency update PRs from .github/dependabot.yml.
+      # We do not create ad-hoc auto-fix PRs inside the CI workflow.
+
+      # --- 7. Optional Telegram notification ---
+      - name: Send Telegram notification
+        if: steps.pip-audit.outputs.exit_code != '0' && env.TELEGRAM_TOKEN != '' && env.TELEGRAM_TO != ''
+        run: |
+          message="$(printf '%s\n\n%s\n%s\n%s\n%s' \
+            "Security alert in ${GITHUB_REPOSITORY}" \
+            "pip-audit found known vulnerabilities." \
+            "Branch: ${GITHUB_REF_NAME}" \
+            "Commit: ${GITHUB_SHA}" \
+            "Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")"
+
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_TO}" \
+            --data-urlencode "text=${message}" \
+            --data-urlencode "disable_web_page_preview=true"
+
+      - name: Skip Telegram notification
+        if: steps.pip-audit.outputs.exit_code != '0' && (env.TELEGRAM_TOKEN == '' || env.TELEGRAM_TO == '')
+        run: |
+          echo "::notice::pip-audit failed, but TELEGRAM_TOKEN or TELEGRAM_TO is not configured. Skipping Telegram notification."
+
+      # --- 8. Upload audit report and compliance evidence ---
+      - name: Upload dependency audit artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependency-audit-${{ github.run_id }}
+          path: |
+            pip-audit-report.json
+            pip-audit-report.txt
+            dependency-audit-evidence.txt
+          retention-days: 30
+
+      # --- Final gate: fail job after evidence and notification steps ---
+      - name: Fail if dependency audit failed
+        if: steps.pip-audit.outputs.exit_code != '0'
+        run: exit 1
