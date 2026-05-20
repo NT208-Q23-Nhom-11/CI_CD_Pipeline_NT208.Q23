@@ -212,15 +212,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run Gitleaks Full Scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          config-path: .gitleaks.toml
+      - name: Install and Run Gitleaks (Free Open Source)
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/gitleaks/gitleaks/master/scripts/install.sh | sh
+          ./bin/gitleaks detect --source . --verbose --config .gitleaks.toml
 
       - name: Generate Report
         if: failure()
         run: |
-          echo "## 🔴 Secrets Found in Repository!" >> $GITHUB_STEP_SUMMARY
-          echo "Please review and rotate all exposed secrets immediately." >> $GITHUB_STEP_SUMMARY"
+          echo "## Secrets Found in Repository" >> $GITHUB_STEP_SUMMARY
+          echo "Please review logs to rotate secrets." >> $GITHUB_STEP_SUMMARY
