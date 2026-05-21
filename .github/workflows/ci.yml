@@ -23,13 +23,13 @@ jobs:
 
     steps:
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Record CI start time
         run: echo "CI_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
@@ -75,14 +75,14 @@ jobs:
     steps:
       # --- 1. Checkout source ---
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Record audit start time
         run: echo "AUDIT_START_TIME=$(date +%s)" >> "$GITHUB_ENV"
 
       # --- 2. Setup Python and pip cache ---
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
@@ -253,7 +253,7 @@ jobs:
       # --- 8. Upload audit report and compliance evidence ---
       - name: Upload dependency audit artifact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-audit-${{ github.run_id }}
           path: |
@@ -266,24 +266,215 @@ jobs:
       - name: Fail if dependency audit failed
         if: steps.pip-audit.outputs.exit_code != '0'
         run: exit 1
-  # --- 2. Secret scanning with Gitleaks ---
+
   secret-scan:
     name: Secret Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
+      GITLEAKS_VERSION: "8.24.2"
+
     steps:
+      # --- 1. Checkout full history for both diff and history scans ---
       - name: Checkout source
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install and Run Gitleaks (Free Open Source)
+      # --- 2. Install Gitleaks CLI ---
+      - name: Install Gitleaks
         run: |
-          wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz
-          tar -xzf gitleaks_8.18.4_linux_x64.tar.gz
-          ./gitleaks detect --source . --verbose --config .gitleaks.toml
+          curl -sSL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          chmod +x gitleaks
+          ./gitleaks version
 
-      - name: Generate Report
-        if: failure()
+      # --- 3. Scan PR/push diff ---
+      - name: Resolve diff scan range
+        id: scan-range
+        shell: bash
         run: |
-          echo "## Secrets Found in Repository" >> $GITHUB_STEP_SUMMARY
-          echo "Please review logs to rotate secrets." >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base_sha="${{ github.event.pull_request.base.sha }}"
+            head_sha="${{ github.event.pull_request.head.sha }}"
+          else
+            base_sha="${{ github.event.before }}"
+            head_sha="${{ github.sha }}"
+          fi
+
+          if [ -z "$base_sha" ] || [ "$base_sha" = "0000000000000000000000000000000000000000" ]; then
+            base_sha="$(git rev-list --max-parents=0 "$head_sha")"
+          fi
+
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+          echo "Diff scan range: $base_sha..$head_sha"
+
+      - name: Scan changed commits with Gitleaks
+        id: gitleaks-diff
+        continue-on-error: true
+        run: |
+          set +e
+          ./gitleaks git \
+            --config .gitleaks.toml \
+            --redact \
+            --verbose \
+            --log-opts="${{ steps.scan-range.outputs.base_sha }}..${{ steps.scan-range.outputs.head_sha }}" \
+            --report-format json \
+            --report-path gitleaks-diff-report.json \
+            .
+          exit_code=$?
+          set -e
+
+          if [ ! -f gitleaks-diff-report.json ]; then
+            printf '[]\n' > gitleaks-diff-report.json
+          fi
+
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit "$exit_code"
+
+      # --- 4. Scan full repository history ---
+      - name: Scan full history with Gitleaks
+        id: gitleaks-history
+        continue-on-error: true
+        run: |
+          set +e
+          ./gitleaks git \
+            --config .gitleaks.toml \
+            --redact \
+            --verbose \
+            --report-format json \
+            --report-path gitleaks-history-report.json \
+            .
+          exit_code=$?
+          set -e
+
+          if [ ! -f gitleaks-history-report.json ]; then
+            printf '[]\n' > gitleaks-history-report.json
+          fi
+
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+          exit "$exit_code"
+
+      # --- 5. Write summary and evidence ---
+      - name: Write Gitleaks summary
+        if: always()
+        run: |
+          diff_count="$(python -c "import json; print(len(json.load(open('gitleaks-diff-report.json', encoding='utf-8'))))")"
+          history_count="$(python -c "import json; print(len(json.load(open('gitleaks-history-report.json', encoding='utf-8'))))")"
+
+          {
+            echo "Gitleaks Secret Scan Evidence"
+            echo "============================="
+            echo "Timestamp: $(date -Iseconds)"
+            echo "Workflow: $GITHUB_WORKFLOW"
+            echo "Run ID: $GITHUB_RUN_ID"
+            echo "Commit SHA: $GITHUB_SHA"
+            echo "Diff range: ${{ steps.scan-range.outputs.base_sha }}..${{ steps.scan-range.outputs.head_sha }}"
+            echo "Diff findings: $diff_count"
+            echo "Full history findings: $history_count"
+          } > gitleaks-evidence.txt
+
+          {
+            echo "## Gitleaks Secret Scan Summary"
+            echo "- Config: .gitleaks.toml"
+            echo "- Diff scan range: ${{ steps.scan-range.outputs.base_sha }}..${{ steps.scan-range.outputs.head_sha }}"
+            echo "- Diff findings: $diff_count"
+            echo "- Full history findings: $history_count"
+            echo "- Local prevention: pre-commit config is available in .pre-commit-config.yaml"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # --- 6. Optional Telegram notification ---
+      - name: Send Telegram notification
+        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && env.TELEGRAM_TOKEN != '' && env.TELEGRAM_TO != ''
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          def load_findings(path):
+              try:
+                  with open(path, encoding="utf-8") as report_file:
+                      data = json.load(report_file)
+                      return data if isinstance(data, list) else []
+              except Exception:
+                  return []
+
+          findings = load_findings("gitleaks-diff-report.json")
+          if not findings:
+              findings = load_findings("gitleaks-history-report.json")
+
+          run_url = (
+              f"{os.environ['GITHUB_SERVER_URL']}/"
+              f"{os.environ['GITHUB_REPOSITORY']}/actions/runs/"
+              f"{os.environ['GITHUB_RUN_ID']}"
+          )
+
+          lines = [
+              f"🔐 Secret Scan Alert in {os.environ['GITHUB_REPOSITORY']}",
+              "",
+              "⚠️ Gitleaks found potential secrets!",
+              "",
+          ]
+
+          if findings:
+              for finding in findings[:5]:
+                  lines.extend([
+                      f"📄 File: {finding.get('File', 'unknown')}",
+                      f"🔎 Rule: {finding.get('RuleID', 'unknown')}",
+                      f"🧩 Commit: {str(finding.get('Commit', os.environ['GITHUB_SHA']))[:7]}",
+                      "---",
+                      "",
+                  ])
+              if len(findings) > 5:
+                  lines.extend([f"...and {len(findings) - 5} more finding(s).", ""])
+          else:
+              lines.extend([
+                  "📄 File: See Gitleaks artifact",
+                  "🔎 Rule: See Gitleaks artifact",
+                  "---",
+                  "",
+              ])
+
+          lines.extend([
+              "📋 Details:",
+              f"• Branch: {os.environ['GITHUB_REF_NAME']}",
+              f"• Commit: {os.environ['GITHUB_SHA'][:7]}",
+              f"• View Run: {run_url}",
+          ])
+
+          with open("gitleaks-telegram-message.txt", "w", encoding="utf-8") as message_file:
+              message_file.write("\n".join(lines))
+          PY
+
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_TO}" \
+            --data-urlencode "text@gitleaks-telegram-message.txt" \
+            --data-urlencode "disable_web_page_preview=true"
+
+      - name: Skip Telegram notification
+        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && (env.TELEGRAM_TOKEN == '' || env.TELEGRAM_TO == '')
+        run: |
+          echo "::notice::Gitleaks found potential secrets, but TELEGRAM_TOKEN or TELEGRAM_TO is not configured. Skipping Telegram notification."
+
+      # --- 7. Upload reports ---
+      - name: Upload Gitleaks artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-secret-scan-${{ github.run_id }}
+          path: |
+            gitleaks-diff-report.json
+            gitleaks-history-report.json
+            gitleaks-evidence.txt
+          retention-days: 30
+
+      # --- Final gate: fail if any secret scan failed ---
+      - name: Fail if Gitleaks found secrets
+        if: steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0'
+        run: exit 1

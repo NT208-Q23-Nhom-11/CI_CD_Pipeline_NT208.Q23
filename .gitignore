@@ -25,6 +25,11 @@ htmlcov/
 
 # Logs
 *.log
+gitleaks-*.json
+gitleaks-*.txt
+dependency-audit-evidence.txt
+pip-audit-report.json
+pip-audit-report.txt
 
 # OS
 .DS_Store

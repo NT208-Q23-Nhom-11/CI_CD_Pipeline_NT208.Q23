@@ -1,34 +1,50 @@
-title = "Gitleaks Enterprise Config"
+title = "CI/CD Pipeline NT208 Gitleaks Config"
 
-# Cho phép bỏ qua một số file hoặc pattern không phải secret thật
-[allowlist]
-  description = "Global allowlist"
-  regexes = [
-    '''TEST_[A-Z0-9_]+''',
-    '''example\.com''',
-  ]
-  paths = [
-    '''.gitleaks.toml''',
-    '''tests/.*''',
-    '''docs/.*''',
-    '''\.git/.*''',
-  ]
-
-# Định nghĩa các rule quét mật khẩu/token
-[[rules]]
-  id = "aws-access-key"
-  description = "AWS Access Key"
-  regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
-  tags = ["key", "aws"]
+[extend]
+useDefault = true
 
 [[rules]]
-  id = "jwt-token"
-  description = "JWT Token"
-  regex = '''eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}'''
-  tags = ["jwt", "token"]
+id = "flask-secret-key-assignment"
+description = "Hardcoded Flask SECRET_KEY value"
+regex = '''(?i)(SECRET_KEY|FLASK_SECRET_KEY)\s*[:=]\s*['"]([^'"]{16,})['"]'''
+secretGroup = 2
+entropy = 3.0
+keywords = ["SECRET_KEY", "FLASK_SECRET_KEY"]
+tags = ["flask", "secret", "python"]
 
 [[rules]]
-  id = "database-url"
-  description = "Database Connection String"
-  regex = '''(postgres|mysql|mongodb|redis)://[^:]+:[^@]+@[^/]+'''
-  tags = ["database", "connection-string"]
+id = "dotenv-sensitive-assignment"
+description = "Sensitive value committed in dotenv-style assignment"
+regex = '''(?i)(password|passwd|pwd|token|api[_-]?key|secret|private[_-]?key)\s*=\s*['"]?([^'"\s#]{12,})'''
+secretGroup = 2
+entropy = 3.0
+keywords = ["password", "token", "secret", "api_key", "private_key"]
+tags = ["dotenv", "secret"]
+
+[[allowlists]]
+description = "Project placeholders and documentation-only secret names"
+regexTarget = "line"
+regexes = [
+  '''change-this-in-github-secrets''',
+  '''change-me-only-for-local''',
+  '''change-me''',
+  '''<full_commit_sha_or_image_tag>''',
+  '''\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}''',
+  '''TELEGRAM_TOKEN''',
+  '''TELEGRAM_TO''',
+  '''STAGING_SSH_KEY''',
+  '''STAGING_HOST''',
+  '''STAGING_USER''',
+  '''STAGING_SSH_PORT''',
+  '''GHCR_READ_TOKEN''',
+]
+
+[[allowlists]]
+description = "Files that intentionally define detection rules or generated caches"
+paths = [
+  '''(^|/)\.gitleaks\.toml$''',
+  '''(^|/)\.pytest_cache/.*''',
+  '''(^|/)htmlcov/.*''',
+  '''(^|/)gitleaks-.*\.json$''',
+  '''(^|/)gitleaks-.*\.txt$''',
+]
