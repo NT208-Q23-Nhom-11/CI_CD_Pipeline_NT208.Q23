@@ -136,7 +136,7 @@ CI secret scan dung Gitleaks theo 2 lop:
 - Scan diff cua PR/push de chan secret moi.
 - Scan full git history de phat hien secret da tung bi commit.
 
-Neu Gitleaks fail va co cau hinh `TELEGRAM_TOKEN`, `TELEGRAM_TO`, workflow se gui Telegram notification kem file/rule/commit va link workflow run.
+Neu Gitleaks fail, workflow se upload report va evidence artifact de review file/rule/commit lien quan.
 
 ## 6. Cach Build Docker Local
 
@@ -248,8 +248,7 @@ Tuy chon:
 | --- | --- |
 | `STAGING_SSH_PORT` | SSH port neu khong dung port mac dinh 22 |
 | `GHCR_READ_TOKEN` | Token read-only de staging pull private GHCR image |
-| `TELEGRAM_TOKEN` | Bot token de gui notification khi audit/secret scan fail |
-| `TELEGRAM_TO` | Chat ID hoac channel ID nhan notification Telegram |
+| `DISCORD_WEBHOOK_URL` | Webhook Discord neu muon gui notification cho dependency audit hoac CD |
 
 Khong dung:
 

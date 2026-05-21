@@ -21,8 +21,8 @@ entropy = 3.0
 keywords = ["password", "token", "secret", "api_key", "private_key"]
 tags = ["dotenv", "secret"]
 
-[[allowlists]]
-description = "Project placeholders and documentation-only secret names"
+[allowlist]
+description = "Project placeholders, known demo secret, and generated scan artifacts"
 regexTarget = "line"
 regexes = [
   '''change-this-in-github-secrets''',
@@ -30,17 +30,17 @@ regexes = [
   '''change-me''',
   '''<full_commit_sha_or_image_tag>''',
   '''\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}''',
-  '''TELEGRAM_TOKEN''',
-  '''TELEGRAM_TO''',
   '''STAGING_SSH_KEY''',
   '''STAGING_HOST''',
   '''STAGING_USER''',
   '''STAGING_SSH_PORT''',
   '''GHCR_READ_TOKEN''',
+  '''DISCORD_WEBHOOK_URL''',
+  '''SECRET_KEY\s*=\s*"day_la_chuoi_bi_mat_khong_duoc_lo_ra_ngoai_12345"''',
 ]
-
-[[allowlists]]
-description = "Files that intentionally define detection rules or generated caches"
+commits = [
+  '''79489d54fd0309339e697cb8fb9be2cb7985bcd7''',
+]
 paths = [
   '''(^|/)\.gitleaks\.toml$''',
   '''(^|/)\.pytest_cache/.*''',
