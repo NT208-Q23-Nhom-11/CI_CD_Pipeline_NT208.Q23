@@ -44,11 +44,18 @@ fi
 export IMAGE_TAG="$NEW_TAG"
 export REGISTRY_IMAGE
 
-echo "[DEPLOY] Stopping old container, if any..."
-compose down --remove-orphans || true
+# --- ĐÃ THAY ĐỔI & THÊM PHẦN DỌN DẸP Ở ĐÂY ---
 
-echo "[DEPLOY] Starting new container..."
-compose up -d
+echo "[DEPLOY] Updating containers to new version..."
+# Thay vì dùng 'compose down' làm sập web hoàn toàn, dùng thẳng lệnh này 
+# giúp container cũ chỉ khởi động lại trong 1-2 giây với image mới.
+compose up -d --remove-orphans
 
 echo "$NEW_TAG" > "$CURRENT_TAG_FILE"
 echo "[DEPLOY] Done. Current tag: $NEW_TAG"
+
+echo "[DEPLOY] Cleaning up old images and resources..."
+# Lệnh này chạy ở cuối cùng, cực kỳ an toàn. 
+# Nó quét sạch các bản build cũ (SHA cũ) bị mất tag để giải phóng ổ cứng/RAM, 
+# nhưng không làm mất cache của hệ thống.
+docker image prune -f

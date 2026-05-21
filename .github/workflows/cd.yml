@@ -167,7 +167,7 @@ jobs:
             if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
               curl -sS -H "Content-Type: application/json" -X POST -d '{
                 "embeds": [{
-                  "title": "🔄 Phục Hồi Hệ Thống Hoàn Tất",
+                  "title": "Phục Hồi Hệ Thống Hoàn Tất",
                   "description": "Quá trình tự động Rollback đã xử lý xong. Hệ thống đã gỡ bỏ bản lỗi và an toàn quay về phiên bản ổn định trước đó.",
                   "color": 16753920
                 }]
