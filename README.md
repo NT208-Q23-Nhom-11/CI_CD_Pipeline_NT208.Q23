@@ -5,18 +5,18 @@ Do an NT208.Q23.ANTT mo phong pipeline CI/CD cho ung dung Flask co staging, kiem
 ## Giảng viên hướng đẫn
 
 - Ths. Nghi Hoàng Khoa
-  
+
 
 ## Thực hiện bởi nhóm 11 gồm:
 
 - Hồ Ngọc Vương Thương - 24521749
-  
+
 - Phạm Trần Anh Tuấn - 24521939
-  
+
 - Võ Đình Hoàng Tiến - 24521783
-  
+
 - Hà Võ Đức Thiện - 24521658
-  
+
 
 ## Lớp
 
@@ -120,6 +120,23 @@ python -m flake8 app tests
 ```
 
 Test suite hien cover cac endpoint chinh: `/`, `/health`, `GET /api/items`, `GET /api/items/<id>`, `POST /api/items`, case 400 va case 404.
+
+Chay secret scan local bang pre-commit:
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files
+```
+
+Hook Gitleaks trong `.pre-commit-config.yaml` chan secret truoc khi commit. CI van chay them Gitleaks tren PR/push diff va full git history de bat cac truong hop bo qua local hook.
+
+CI secret scan dung Gitleaks theo 2 lop:
+
+- Scan diff cua PR/push de chan secret moi.
+- Scan full git history de phat hien secret da tung bi commit.
+
+Neu Gitleaks fail va co cau hinh `TELEGRAM_TOKEN`, `TELEGRAM_TO`, workflow se gui Telegram notification kem file/rule/commit va link workflow run.
 
 ## 6. Cach Build Docker Local
 
@@ -231,6 +248,8 @@ Tuy chon:
 | --- | --- |
 | `STAGING_SSH_PORT` | SSH port neu khong dung port mac dinh 22 |
 | `GHCR_READ_TOKEN` | Token read-only de staging pull private GHCR image |
+| `TELEGRAM_TOKEN` | Bot token de gui notification khi audit/secret scan fail |
+| `TELEGRAM_TO` | Chat ID hoac channel ID nhan notification Telegram |
 
 Khong dung:
 
@@ -308,4 +327,3 @@ Tag rollback sai:
 - Kiem tra state dir tren staging: `$HOME/staging-state/ci-cd-pipeline`.
 - `deploy.sh` ghi `.current_tag` va `.previous_tag`.
 - `rollback.sh` doc `.previous_tag` va ghi lai `.current_tag`.
-
