@@ -13,7 +13,7 @@ def test_index_returns_app_metadata(client):
 
     assert response.status_code == 200
     assert response.get_json() == {
-        "app": "ci-cd-pipeline-demo",
+        "app": "ci-cd-pipeline-azure-vps",
         "version": "test-version",
         "environment": "testing",
     }
