@@ -84,12 +84,15 @@ jobs:
           DEPLOY_REGISTRY_IMAGE: ${{ needs.build-and-push.outputs.registry_image }}
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
           GHCR_USERNAME: ${{ github.actor }}
+          # Nạp thêm biến Webhook URL vào môi trường chạy CD
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
           port: ${{ secrets.STAGING_SSH_PORT || 22 }}
-          envs: DEPLOY_IMAGE_TAG,DEPLOY_REGISTRY_IMAGE,GHCR_READ_TOKEN,GHCR_USERNAME
+          # Bắt buộc thêm DISCORD_WEBHOOK_URL vào danh sách envs dưới đây
+          envs: DEPLOY_IMAGE_TAG,DEPLOY_REGISTRY_IMAGE,GHCR_READ_TOKEN,GHCR_USERNAME,DISCORD_WEBHOOK_URL
           script: |
             set -euo pipefail
 
@@ -128,6 +131,35 @@ jobs:
             echo "[CD] Running post-rollback smoke test..."
             bash scripts/smoke_test.sh http://localhost:5000/health
             echo "[CD] Rollback recovered: health check is OK."
+            export REGISTRY_IMAGE
+            bash scripts/deploy.sh "$IMAGE_TAG"
+
+            if bash scripts/smoke_test.sh http://localhost:5000/health; then
+              echo "[CD] Deploy smoke test passed."
+              # --- THÔNG BÁO DEPLOY THÀNH CÔNG ---
+              if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
+                curl -sS -H "Content-Type: application/json" -X POST -d "{\"content\": \"🚀 **[DEPLOY STAGING]** Phiên bản mới (Tag: \`${IMAGE_TAG:0:7}\`) đã được triển khai và vượt qua smoke test thành công trên Azure VPS!\"}" "$DISCORD_WEBHOOK_URL"
+              fi
+              exit 0
+            fi
+
+            echo "[CD] Deploy smoke test failed. Starting rollback..."
+            
+            # --- CẢNH BÁO PHÁT HIỆN LỖI - BẮT ĐẦU ROLLBACK ---
+            if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
+              curl -sS -H "Content-Type: application/json" -X POST -d "{\"content\": \"🚨 **[CẢNH BÁO CD]** Phiên bản mới (Tag: \`${IMAGE_TAG:0:7}\`) kiểm thử thất bại! Hệ thống đang tự động kích hoạt tiến trình Rollback phục hồi...\"}" "$DISCORD_WEBHOOK_URL"
+            fi
+
+            bash scripts/rollback.sh
+
+            echo "[CD] Running post-rollback smoke test..."
+            bash scripts/smoke_test.sh http://localhost:5000/health
+            echo "[CD] Rollback recovered: health check is OK."
+            
+            # --- THÔNG BÁO PHỤC HỒI THÀNH CÔNG ---
+            if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
+              curl -sS -H "Content-Type: application/json" -X POST -d "{\"content\": \"✅ **[HỆ THỐNG PHỤC HỒI]** Quá trình tự động Rollback hoàn tất. Hệ thống đã quay về phiên bản an toàn trước đó và hoạt động ổn định!\"}" "$DISCORD_WEBHOOK_URL"
+            fi
 
       - name: Write deploy summary
         if: always()
