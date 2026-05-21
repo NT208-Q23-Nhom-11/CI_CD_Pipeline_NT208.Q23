@@ -18,6 +18,8 @@ def register_routes(app):
 
     @app.get("/health")
     def health():
+        if app.config.get("FLASK_ENV") == "production":
+            return jsonify({"status": "staging crash"}), 500
         return jsonify({"status": "ok"}), 200
 
     @app.get("/api/items")
