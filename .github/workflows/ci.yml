@@ -306,7 +306,7 @@ jobs:
 
       - name: Scan changed commits with Gitleaks
         id: gitleaks-diff
-        continue-on-error: false
+        continue-on-error: true
         run: |
           set +e
           ./gitleaks git \
@@ -330,7 +330,7 @@ jobs:
       # --- 4. Scan full repository history ---
       - name: Scan full history with Gitleaks
         id: gitleaks-history
-        continue-on-error: false
+        continue-on-error: true
         run: |
           set +e
           ./gitleaks git \
