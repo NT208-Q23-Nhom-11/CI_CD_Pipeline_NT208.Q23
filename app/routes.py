@@ -22,6 +22,9 @@ def register_routes(app):
 
     @app.get("/api/items")
     def get_items():
+        import os
+        if os.getenv("FLASK_ENV") == "staging":
+            return jsonify({"status": "error", "message": "Staging crashed!"}), 500
         return jsonify({"items": ITEMS}), 200
 
     @app.get("/api/items/<int:item_id>")
