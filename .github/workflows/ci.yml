@@ -306,7 +306,7 @@ jobs:
 
       - name: Scan changed commits with Gitleaks
         id: gitleaks-diff
-        continue-on-error: true
+        continue-on-error: false
         run: |
           set +e
           ./gitleaks git \
@@ -330,7 +330,7 @@ jobs:
       # --- 4. Scan full repository history ---
       - name: Scan full history with Gitleaks
         id: gitleaks-history
-        continue-on-error: true
+        continue-on-error: false
         run: |
           set +e
           ./gitleaks git \
@@ -378,9 +378,11 @@ jobs:
             echo "- Local prevention: pre-commit config is available in .pre-commit-config.yaml"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # --- 6. Optional Telegram notification ---
-      - name: Send Telegram notification
-        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && env.TELEGRAM_TOKEN != '' && env.TELEGRAM_TO != ''
+     # # --- 6. Send Discord notification when secrets are found ---
+      - name: Send Discord notification
+        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           python - <<'PY'
           import json
@@ -403,53 +405,53 @@ jobs:
               f"{os.environ['GITHUB_REPOSITORY']}/actions/runs/"
               f"{os.environ['GITHUB_RUN_ID']}"
           )
+          short_sha = os.environ["GITHUB_SHA"][:7]
 
-          lines = [
-              f"🔐 Secret Scan Alert in {os.environ['GITHUB_REPOSITORY']}",
-              "",
-              "⚠️ Gitleaks found potential secrets!",
-              "",
+          description_lines = [
+              "⚠️ **Gitleaks đã phát hiện mã bí mật (Secrets) bị rò rỉ trong mã nguồn!**",
+              "Luồng CI đã bị ngắt kết nối để bảo vệ an toàn hệ thống. Chi tiết các vi phạm:",
+              ""
           ]
 
           if findings:
               for finding in findings[:5]:
-                  lines.extend([
-                      f"📄 File: {finding.get('File', 'unknown')}",
-                      f"🔎 Rule: {finding.get('RuleID', 'unknown')}",
-                      f"🧩 Commit: {str(finding.get('Commit', os.environ['GITHUB_SHA']))[:7]}",
-                      "---",
-                      "",
+                  description_lines.extend([
+                      f"**Tệp tin**: `{finding.get('File', 'unknown')}`",
+                      f"**Quy tắc vi phạm**: `{finding.get('RuleID', 'unknown')}`",
+                      f"**Commit SHA**: `{str(finding.get('Commit', os.environ['GITHUB_SHA']))[:7]}`",
+                      "---"
                   ])
               if len(findings) > 5:
-                  lines.extend([f"...and {len(findings) - 5} more finding(s).", ""])
+                  description_lines.append(f"...và còn {len(findings) - 5} vi phạm khác.")
           else:
-              lines.extend([
-                  "📄 File: See Gitleaks artifact",
-                  "🔎 Rule: See Gitleaks artifact",
-                  "---",
-                  "",
-              ])
+              description_lines.append("Chi tiết vi phạm vui lòng kiểm tra trong tệp đính kèm (Artifact) của GitHub run.")
 
-          lines.extend([
-              "📋 Details:",
-              f"• Branch: {os.environ['GITHUB_REF_NAME']}",
-              f"• Commit: {os.environ['GITHUB_SHA'][:7]}",
-              f"• View Run: {run_url}",
-          ])
+          discord_payload = {
+              "embeds": [{
+                  "title": "🚨 CẢNH BÁO BẢO MẬT: Phát Hiện Rò Rỉ Mã Bí Mật",
+                  "description": "\n".join(description_lines),
+                  "color": 15158332,
+                  "fields": [
+                      {"name": "Nhánh (Branch)", "value": f"`{os.environ['GITHUB_REF_NAME']}`", "inline": True},
+                      {"name": "Commit chính", "value": f"`{short_sha}`", "inline": True},
+                      {"name": "Liên kết kiểm tra", "value": f"[Xem chi tiết trên GitHub]({run_url})", "inline": False}
+                  ]
+              }]
+          }
 
-          with open("gitleaks-telegram-message.txt", "w", encoding="utf-8") as message_file:
-              message_file.write("\n".join(lines))
+          with open("gitleaks-discord-payload.json", "w", encoding="utf-8") as payload_file:
+              json.dump(discord_payload, payload_file)
           PY
 
-          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-            --data-urlencode "chat_id=${TELEGRAM_TO}" \
-            --data-urlencode "text@gitleaks-telegram-message.txt" \
-            --data-urlencode "disable_web_page_preview=true"
+          curl -sS -H "Content-Type: application/json" -X POST -d @gitleaks-discord-payload.json "${DISCORD_WEBHOOK_URL}"
 
-      - name: Skip Telegram notification
-        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && (env.TELEGRAM_TOKEN == '' || env.TELEGRAM_TO == '')
+      # --- 6b. Skip Discord notification ---
+      - name: Skip Discord notification
+        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && env.DISCORD_WEBHOOK_URL == ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          echo "::notice::Gitleaks found potential secrets, but TELEGRAM_TOKEN or TELEGRAM_TO is not configured. Skipping Telegram notification."
+          echo "::notice::Gitleaks phát hiện có lỗi bảo mật, nhưng chưa cấu hình DISCORD_WEBHOOK_URL. Bỏ qua gửi thông báo."
 
       # --- 7. Upload reports ---
       - name: Upload Gitleaks artifacts
