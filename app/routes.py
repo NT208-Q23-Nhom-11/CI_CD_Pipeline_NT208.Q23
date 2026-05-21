@@ -17,7 +17,7 @@ def register_routes(app):
         }), 200
 
     @app.get("/health")
-    def health(): 
+    def health():
         return jsonify({"status": "ok"}), 200
 
     @app.get("/api/items")
