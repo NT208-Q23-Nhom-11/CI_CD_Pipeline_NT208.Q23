@@ -250,7 +250,7 @@ jobs:
         if: steps.pip-audit.outputs.exit_code != '0' && env.DISCORD_WEBHOOK_URL == ''
         run: |
           echo "::notice::pip-audit failed, but DISCORD_WEBHOOK_URL is not configured. Skipping Discord notification."
-          
+
       # --- Final gate: fail job after evidence and notification steps ---
       - name: Fail if dependency audit failed
         if: steps.pip-audit.outputs.exit_code != '0'
@@ -262,8 +262,6 @@ jobs:
     timeout-minutes: 10
 
     env:
-      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-      TELEGRAM_TO: ${{ secrets.TELEGRAM_TO }}
       GITLEAKS_VERSION: "8.24.2"
 
     steps:
@@ -378,80 +376,7 @@ jobs:
             echo "- Local prevention: pre-commit config is available in .pre-commit-config.yaml"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # --- 6. Optional Telegram notification ---
-      - name: Send Telegram notification
-        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && env.TELEGRAM_TOKEN != '' && env.TELEGRAM_TO != ''
-        run: |
-          python - <<'PY'
-          import json
-          import os
-
-          def load_findings(path):
-              try:
-                  with open(path, encoding="utf-8") as report_file:
-                      data = json.load(report_file)
-                      return data if isinstance(data, list) else []
-              except Exception:
-                  return []
-
-          findings = load_findings("gitleaks-diff-report.json")
-          if not findings:
-              findings = load_findings("gitleaks-history-report.json")
-
-          run_url = (
-              f"{os.environ['GITHUB_SERVER_URL']}/"
-              f"{os.environ['GITHUB_REPOSITORY']}/actions/runs/"
-              f"{os.environ['GITHUB_RUN_ID']}"
-          )
-
-          lines = [
-              f"🔐 Secret Scan Alert in {os.environ['GITHUB_REPOSITORY']}",
-              "",
-              "⚠️ Gitleaks found potential secrets!",
-              "",
-          ]
-
-          if findings:
-              for finding in findings[:5]:
-                  lines.extend([
-                      f"📄 File: {finding.get('File', 'unknown')}",
-                      f"🔎 Rule: {finding.get('RuleID', 'unknown')}",
-                      f"🧩 Commit: {str(finding.get('Commit', os.environ['GITHUB_SHA']))[:7]}",
-                      "---",
-                      "",
-                  ])
-              if len(findings) > 5:
-                  lines.extend([f"...and {len(findings) - 5} more finding(s).", ""])
-          else:
-              lines.extend([
-                  "📄 File: See Gitleaks artifact",
-                  "🔎 Rule: See Gitleaks artifact",
-                  "---",
-                  "",
-              ])
-
-          lines.extend([
-              "📋 Details:",
-              f"• Branch: {os.environ['GITHUB_REF_NAME']}",
-              f"• Commit: {os.environ['GITHUB_SHA'][:7]}",
-              f"• View Run: {run_url}",
-          ])
-
-          with open("gitleaks-telegram-message.txt", "w", encoding="utf-8") as message_file:
-              message_file.write("\n".join(lines))
-          PY
-
-          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" \
-            --data-urlencode "chat_id=${TELEGRAM_TO}" \
-            --data-urlencode "text@gitleaks-telegram-message.txt" \
-            --data-urlencode "disable_web_page_preview=true"
-
-      - name: Skip Telegram notification
-        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && (env.TELEGRAM_TOKEN == '' || env.TELEGRAM_TO == '')
-        run: |
-          echo "::notice::Gitleaks found potential secrets, but TELEGRAM_TOKEN or TELEGRAM_TO is not configured. Skipping Telegram notification."
-
-      # --- 7. Upload reports ---
+      # --- 6. Upload reports ---
       - name: Upload Gitleaks artifacts
         if: always()
         uses: actions/upload-artifact@v4
