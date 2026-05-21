@@ -378,9 +378,11 @@ jobs:
             echo "- Local prevention: pre-commit config is available in .pre-commit-config.yaml"
           } >> "$GITHUB_STEP_SUMMARY"
 
-     # --- 6. Send Discord notification when secrets are found ---
+     # # --- 6. Send Discord notification when secrets are found ---
       - name: Send Discord notification
-        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && secrets.DISCORD_WEBHOOK_URL != ''
+        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && env.DISCORD_WEBHOOK_URL != ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           python - <<'PY'
           import json
@@ -389,12 +391,11 @@ jobs:
           def load_findings(path):
               try:
                   with open(path, encoding="utf-8") as report_file:
-                      data = json.load_file = json.load(report_file)
+                      data = json.load(report_file)
                       return data if isinstance(data, list) else []
               except Exception:
                   return []
 
-          # Ưu tiên đọc báo cáo từ các thay đổi mới (diff), nếu không có mới đọc lịch sử (history)
           findings = load_findings("gitleaks-diff-report.json")
           if not findings:
               findings = load_findings("gitleaks-history-report.json")
@@ -406,7 +407,6 @@ jobs:
           )
           short_sha = os.environ["GITHUB_SHA"][:7]
 
-          # Tạo nội dung mô tả chi tiết danh sách các lỗ hổng tìm thấy
           description_lines = [
               "⚠️ **Gitleaks đã phát hiện mã bí mật (Secrets) bị rò rỉ trong mã nguồn!**",
               "Luồng CI đã bị ngắt kết nối để bảo vệ an toàn hệ thống. Chi tiết các vi phạm:",
@@ -414,7 +414,6 @@ jobs:
           ]
 
           if findings:
-              # Lấy tối đa 5 vi phạm đầu tiên để tránh vượt quá giới hạn ký tự của Discord
               for finding in findings[:5]:
                   description_lines.extend([
                       f"📄 **Tệp tin**: `{finding.get('File', 'unknown')}`",
@@ -427,12 +426,11 @@ jobs:
           else:
               description_lines.append("Chi tiết vi phạm vui lòng kiểm tra trong tệp đính kèm (Artifact) của GitHub run.")
 
-          # Tạo cấu trúc payload dạng Embed hoành tráng theo chuẩn Discord giống bên cd.yml
           discord_payload = {
               "embeds": [{
                   "title": "🚨 CẢNH BÁO BẢO MẬT: Phát Hiện Rò Rỉ Mã Bí Mật",
                   "description": "\n".join(description_lines),
-                  "color": 15158332,  # Màu đỏ cảnh báo (Hex: #E74C3C)
+                  "color": 15158332,
                   "fields": [
                       {"name": "Nhánh (Branch)", "value": f"`{os.environ['GITHUB_REF_NAME']}`", "inline": True},
                       {"name": "Commit chính", "value": f"`{short_sha}`", "inline": True},
@@ -445,12 +443,13 @@ jobs:
               json.dump(discord_payload, payload_file)
           PY
 
-          # Thực hiện gửi dữ liệu đến Discord Webhook
-          curl -sS -H "Content-Type: application/json" -X POST -d @gitleaks-discord-payload.json "${{ secrets.DISCORD_WEBHOOK_URL }}"
+          curl -sS -H "Content-Type: application/json" -X POST -d @gitleaks-discord-payload.json "${DISCORD_WEBHOOK_URL}"
 
       # --- 6b. Skip Discord notification ---
       - name: Skip Discord notification
-        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && secrets.DISCORD_WEBHOOK_URL == ''
+        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && env.DISCORD_WEBHOOK_URL == ''
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           echo "::notice::Gitleaks phát hiện có lỗi bảo mật, nhưng chưa cấu hình DISCORD_WEBHOOK_URL. Bỏ qua gửi thông báo."
           
