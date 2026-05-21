@@ -11,7 +11,7 @@ def register_routes(app):
     @app.get("/")
     def index():
         return jsonify({
-            "app": "ci-cd-pipeline-azure-vps",
+            "app": "ci-cd-pipeline-azurevps",
             "version": app.config.get("APP_VERSION", "dev"),
             "environment": app.config.get("FLASK_ENV", "development")
         }), 200
