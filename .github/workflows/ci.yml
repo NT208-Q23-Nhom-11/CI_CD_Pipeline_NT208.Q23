@@ -306,7 +306,7 @@ jobs:
 
       - name: Scan changed commits with Gitleaks
         id: gitleaks-diff
-        continue-on-error: true
+        continue-on-error: false
         run: |
           set +e
           ./gitleaks git \
@@ -330,7 +330,7 @@ jobs:
       # --- 4. Scan full repository history ---
       - name: Scan full history with Gitleaks
         id: gitleaks-history
-        continue-on-error: true
+        continue-on-error: false
         run: |
           set +e
           ./gitleaks git \
@@ -416,9 +416,9 @@ jobs:
           if findings:
               for finding in findings[:5]:
                   description_lines.extend([
-                      f"📄 **Tệp tin**: `{finding.get('File', 'unknown')}`",
-                      f"🔎 **Quy tắc vi phạm**: `{finding.get('RuleID', 'unknown')}`",
-                      f"🧩 **Commit SHA**: `{str(finding.get('Commit', os.environ['GITHUB_SHA']))[:7]}`",
+                      f"**Tệp tin**: `{finding.get('File', 'unknown')}`",
+                      f"**Quy tắc vi phạm**: `{finding.get('RuleID', 'unknown')}`",
+                      f"**Commit SHA**: `{str(finding.get('Commit', os.environ['GITHUB_SHA']))[:7]}`",
                       "---"
                   ])
               if len(findings) > 5:
@@ -452,7 +452,7 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           echo "::notice::Gitleaks phát hiện có lỗi bảo mật, nhưng chưa cấu hình DISCORD_WEBHOOK_URL. Bỏ qua gửi thông báo."
-          
+
       # --- 7. Upload reports ---
       - name: Upload Gitleaks artifacts
         if: always()
