@@ -263,6 +263,7 @@ jobs:
 
     env:
       GITLEAKS_VERSION: "8.24.2"
+      DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
 
     steps:
       # --- 1. Checkout full history for both diff and history scans ---
@@ -387,6 +388,80 @@ jobs:
             gitleaks-history-report.json
             gitleaks-evidence.txt
           retention-days: 30
+      # --- 7. Send Discord notification ---
+      - name: Send Discord notification
+        if: (steps.gitleaks-diff.outputs.exit_code != '0' || steps.gitleaks-history.outputs.exit_code != '0') && env.DISCORD_WEBHOOK_URL != ''
+        run: |
+          python - <<'PY'
+          import json
+          import os
+
+          run_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          short_sha = os.environ["GITHUB_SHA"][:7]
+          
+          # Hàm đọc file report JSON an toàn
+          def get_findings(filepath):
+              try:
+                  with open(filepath, encoding="utf-8") as f:
+                      return json.load(f)
+              except Exception:
+                  return []
+
+          diff_findings = get_findings("gitleaks-diff-report.json")
+          history_findings = get_findings("gitleaks-history-report.json")
+          
+          total_findings = len(diff_findings) + len(history_findings)
+          all_findings = diff_findings + history_findings
+          
+          lines = [
+              f"🚨 **Báo Động Bảo Mật trong {os.environ['GITHUB_REPOSITORY']}**",
+              "",
+              "⚠️ `Gitleaks` phát hiện secret hoặc thông tin nhạy cảm bị rò rỉ trong mã nguồn!",
+              "",
+              f"🔍 **Tổng số lỗi**: {total_findings} (Diff: {len(diff_findings)}, History: {len(history_findings)})",
+              "",
+          ]
+          
+          # Lấy tối đa 3 lỗi đầu tiên để hiển thị ví dụ
+          for finding in all_findings[:3]:
+              rule = finding.get("RuleID", "unknown")
+              file = finding.get("File", "unknown")
+              commit = finding.get("Commit", "unknown")[:7]
+              lines.extend([
+                  f"📄 **File**: `{file}`",
+                  f"🔑 **Loại (Rule)**: `{rule}`",
+                  f"🏷️ **Commit**: `{commit}`",
+                  "---",
+                  ""
+              ])
+          
+          if total_findings > 3:
+              lines.extend([
+                  f"...và {total_findings - 3} lỗi khác. (Vui lòng tải Artifact về để xem chi tiết)",
+                  ""
+              ])
+
+          lines.extend([
+              "📋 **Chi Tiết Run**:",
+              f"• Branch: `{os.environ.get('GITHUB_REF_NAME', 'unknown')}`",
+              f"• Commit: `{short_sha}`",
+              f"• [Xem chi tiết trên GitHub Actions]({run_url})",
+          ])
+
+          # Đóng gói thành định dạng embed của Discord cho đẹp
+          discord_payload = {
+              "embeds": [{
+                "title": "Cảnh Báo Rò Rỉ Secret",
+                "description": "\n".join(lines),
+                "color": 15158332 # Màu đỏ
+              }]
+          }
+
+          with open("discord-payload.json", "w", encoding="utf-8") as payload_file:
+              json.dump(discord_payload, payload_file)
+          PY
+
+          curl -sS -H "Content-Type: application/json" -X POST -d @discord-payload.json "${DISCORD_WEBHOOK_URL}"
 
       # --- Final gate: fail if any secret scan failed ---
       - name: Fail if Gitleaks found secrets
