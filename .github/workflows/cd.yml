@@ -119,12 +119,23 @@ jobs:
             export REGISTRY_IMAGE
             bash scripts/deploy.sh "$IMAGE_TAG"
 
-            # --- KIỂM TRA SMOKE TEST (CHỈ 1 LẦN DUY NHẤT) ---
+            # --- KIỂM TRA SMOKE TEST ---
             if bash scripts/smoke_test.sh http://localhost:5000/health; then
               echo "[CD] Deploy smoke test passed."
               
+              # 1. THÔNG BÁO DEPLOY THÀNH CÔNG (THẺ CÓ VIỀN XANH LÁ)
               if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
-                curl -sS -H "Content-Type: application/json" -X POST -d "{\"content\": \"🚀 **[DEPLOY STAGING]** Phiên bản mới (Tag: \`${IMAGE_TAG:0:7}\`) đã được triển khai và vượt qua smoke test thành công trên Azure VPS!\"}" "$DISCORD_WEBHOOK_URL"
+                curl -sS -H "Content-Type: application/json" -X POST -d '{
+                  "embeds": [{
+                    "title": "✅ Triển Khai Thành Công (Staging)",
+                    "description": "Phiên bản mới đã vượt qua bài kiểm tra sức khỏe (smoke test) và đang hoạt động ổn định trên máy chủ Azure.",
+                    "color": 3066993,
+                    "fields": [
+                      {"name": "🏷️ Phiên bản (Tag)", "value": "`'"${IMAGE_TAG:0:7}"'`", "inline": true},
+                      {"name": "👤 Kích hoạt bởi", "value": "`'"${GHCR_USERNAME}"'`", "inline": true}
+                    ]
+                  }]
+                }' "$DISCORD_WEBHOOK_URL"
               fi
               
               exit 0
@@ -132,8 +143,18 @@ jobs:
 
             echo "[CD] Deploy smoke test failed. Starting rollback..."
             
+            # 2. CẢNH BÁO LỖI & ROLLBACK (THẺ CÓ VIỀN ĐỎ)
             if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
-              curl -sS -H "Content-Type: application/json" -X POST -d "{\"content\": \"🚨 **[CẢNH BÁO CD]** Phiên bản mới (Tag: \`${IMAGE_TAG:0:7}\`) kiểm thử thất bại! Hệ thống đang tự động kích hoạt tiến trình Rollback phục hồi...\"}" "$DISCORD_WEBHOOK_URL"
+              curl -sS -H "Content-Type: application/json" -X POST -d '{
+                "embeds": [{
+                  "title": "🚨 Cảnh Báo Kiểm Thử Thất Bại",
+                  "description": "Phiên bản mới không qua được smoke test! Luồng CI/CD đang tự động ngắt kết nối và kích hoạt tiến trình **Rollback** khẩn cấp...",
+                  "color": 15158332,
+                  "fields": [
+                    {"name": "🏷️ Tag Bị Lỗi", "value": "`'"${IMAGE_TAG:0:7}"'`", "inline": true}
+                  ]
+                }]
+              }' "$DISCORD_WEBHOOK_URL"
             fi
 
             bash scripts/rollback.sh
@@ -142,8 +163,15 @@ jobs:
             bash scripts/smoke_test.sh http://localhost:5000/health
             echo "[CD] Rollback recovered: health check is OK."
             
+            # 3. THÔNG BÁO ROLLBACK THÀNH CÔNG (THẺ CÓ VIỀN VÀNG CAM)
             if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
-              curl -sS -H "Content-Type: application/json" -X POST -d "{\"content\": \"✅ **[HỆ THỐNG PHỤC HỒI]** Quá trình tự động Rollback hoàn tất. Hệ thống đã quay về phiên bản an toàn trước đó và hoạt động ổn định!\"}" "$DISCORD_WEBHOOK_URL"
+              curl -sS -H "Content-Type: application/json" -X POST -d '{
+                "embeds": [{
+                  "title": "🔄 Phục Hồi Hệ Thống Hoàn Tất",
+                  "description": "Quá trình tự động Rollback đã xử lý xong. Hệ thống đã gỡ bỏ bản lỗi và an toàn quay về phiên bản ổn định trước đó.",
+                  "color": 16753920
+                }]
+              }' "$DISCORD_WEBHOOK_URL"
             fi
 
       - name: Write deploy summary
