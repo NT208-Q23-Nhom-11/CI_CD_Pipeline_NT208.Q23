@@ -120,7 +120,7 @@ jobs:
             bash scripts/deploy.sh "$IMAGE_TAG"
 
             # --- KIỂM TRA SMOKE TEST ---
-            if bash scripts/smoke_test.sh http://localhost:5000/health; then
+            if bash scripts/smoke_test.sh http://${{ secrets.STAGING_HOST }}:5000/health; then
               echo "[CD] Deploy smoke test passed."
               
               # 1. THÔNG BÁO DEPLOY THÀNH CÔNG (THẺ CÓ VIỀN XANH LÁ)
@@ -160,7 +160,7 @@ jobs:
             bash scripts/rollback.sh
 
             echo "[CD] Running post-rollback smoke test..."
-            bash scripts/smoke_test.sh http://localhost:5000/health
+            bash scripts/smoke_test.sh http://${{ secrets.STAGING_HOST }}:5000/health
             echo "[CD] Rollback recovered: health check is OK."
             
             # 3. THÔNG BÁO ROLLBACK THÀNH CÔNG (THẺ CÓ VIỀN VÀNG CAM)
