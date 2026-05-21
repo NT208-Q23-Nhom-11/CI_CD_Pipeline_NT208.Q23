@@ -127,12 +127,12 @@ jobs:
               if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
                 curl -sS -H "Content-Type: application/json" -X POST -d '{
                   "embeds": [{
-                    "title": "✅ Triển Khai Thành Công (Staging)",
+                    "title": "Triển Khai Thành Công (Staging)",
                     "description": "Phiên bản mới đã vượt qua bài kiểm tra sức khỏe (smoke test) và đang hoạt động ổn định trên máy chủ Azure.",
                     "color": 3066993,
                     "fields": [
-                      {"name": "🏷️ Phiên bản (Tag)", "value": "`'"${IMAGE_TAG:0:7}"'`", "inline": true},
-                      {"name": "👤 Kích hoạt bởi", "value": "`'"${GHCR_USERNAME}"'`", "inline": true}
+                      {"name": "Phiên bản (Tag)", "value": "`'"${IMAGE_TAG:0:7}"'`", "inline": true},
+                      {"name": "Kích hoạt bởi", "value": "`'"${GHCR_USERNAME}"'`", "inline": true}
                     ]
                   }]
                 }' "$DISCORD_WEBHOOK_URL"
@@ -147,11 +147,12 @@ jobs:
             if [ -n "${DISCORD_WEBHOOK_URL:-}" ]; then
               curl -sS -H "Content-Type: application/json" -X POST -d '{
                 "embeds": [{
-                  "title": "🚨 Cảnh Báo Kiểm Thử Thất Bại",
+                  "title": "Cảnh Báo Kiểm Thử Thất Bại",
                   "description": "Phiên bản mới không qua được smoke test! Luồng CI/CD đang tự động ngắt kết nối và kích hoạt tiến trình **Rollback** khẩn cấp...",
                   "color": 15158332,
                   "fields": [
-                    {"name": "🏷️ Tag Bị Lỗi", "value": "`'"${IMAGE_TAG:0:7}"'`", "inline": true}
+                    {"name": "Tag Bị Lỗi", "value": "`'"${IMAGE_TAG:0:7}"'`", "inline": true}
+                    {"name": "Kích hoạt bởi", "value": "`'"${GHCR_USERNAME}"'`", "inline": true}
                   ]
                 }]
               }' "$DISCORD_WEBHOOK_URL"
