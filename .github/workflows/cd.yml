@@ -152,7 +152,6 @@ jobs:
                   "color": 15158332,
                   "fields": [
                     {"name": "Tag Bị Lỗi", "value": "`'"${IMAGE_TAG:0:7}"'`", "inline": true}
-                    {"name": "Kích hoạt bởi", "value": "`'"${GHCR_USERNAME}"'`", "inline": true}
                   ]
                 }]
               }' "$DISCORD_WEBHOOK_URL"
