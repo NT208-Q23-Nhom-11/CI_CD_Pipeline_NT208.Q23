@@ -40,6 +40,7 @@ regexes = [
 ]
 commits = [
   '''79489d54fd0309339e697cb8fb9be2cb7985bcd7''',
+  '''95396a393c5ec647f8fc227b7166b063441542b5''',
 ]
 paths = [
   '''(^|/)\.gitleaks\.toml$''',
