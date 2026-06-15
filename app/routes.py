@@ -1,4 +1,5 @@
 from flask import jsonify, request
+import os
 
 
 ITEMS = [
@@ -18,6 +19,8 @@ def register_routes(app):
 
     @app.get("/health")
     def health():
+        if os.getenv("FLASK_ENV") == "staging":
+            return jsonify({"status": "error"}), 500
         return jsonify({"status": "ok"}), 200
 
     @app.get("/api/items")
